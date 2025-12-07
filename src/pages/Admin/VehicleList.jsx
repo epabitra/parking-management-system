@@ -40,17 +40,24 @@ const VehicleList = () => {
 
   const applyFilters = () => {
     // Apply input filters to actual filters
-    setFilters(prev => ({
-      ...prev,
+    const newFilters = {
+      ...filters,
       vehicle_number: inputFilters.vehicle_number,
       mobile_number: inputFilters.mobile_number,
-    }));
+    };
+    setFilters(newFilters);
+    // Trigger load immediately with new filters
+    loadVehiclesWithFilters(newFilters);
   };
 
   const loadVehicles = async () => {
+    await loadVehiclesWithFilters(filters);
+  };
+
+  const loadVehiclesWithFilters = async (filterParams = filters) => {
     try {
       setLoading(true);
-      const params = { ...filters, timezone: userTimezone };
+      const params = { ...filterParams, timezone: userTimezone };
       if (!params.status) delete params.status;
       if (!params.vehicle_number) delete params.vehicle_number;
       if (!params.mobile_number) delete params.mobile_number;
