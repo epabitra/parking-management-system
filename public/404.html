@@ -11,47 +11,29 @@
         var search = window.location.search;
         var hash = window.location.hash;
         
-        // Get the base path from the current location
-        // For project pages: /repo-name/
-        // For user pages: /
-        var pathParts = path.split('/').filter(function(p) { return p; });
-        var basePath = '';
+        // Store the original path in sessionStorage before redirecting
+        // This will be used by React Router to restore the route
+        if (path && path !== '/' && path !== '/index.html' && !path.includes('/index.html')) {
+          sessionStorage.setItem('githubPagesRedirect', path);
+        }
         
-        // If we're on a 404 page, try to determine base path
-        // Common pattern: /repo-name/admin/dashboard -> base is /repo-name/
-        if (pathParts.length > 0 && pathParts[0] !== 'index.html') {
-          // Check if first part looks like a repo name (not a route)
-          // Routes typically don't have dots or special chars
-          var firstPart = pathParts[0];
-          if (firstPart.indexOf('.') === -1 && firstPart !== 'admin' && firstPart !== '404.html') {
-            basePath = '/' + firstPart + '/';
+        // Determine base path from current location
+        // For project pages: /repo-name/admin/dashboard -> base is /repo-name/
+        // For user pages: /admin/dashboard -> base is /
+        var pathSegments = path.split('/').filter(function(seg) { return seg && seg !== ''; });
+        var basePath = '/';
+        var knownRoutes = ['admin', 'login', 'index.html', '404.html'];
+        
+        // If we have path segments and the first one is not a known route, it's likely the repo name
+        if (pathSegments.length > 0) {
+          var firstSegment = pathSegments[0];
+          // Check if first segment looks like a repo name (not a route, not a file)
+          if (knownRoutes.indexOf(firstSegment) === -1 && firstSegment.indexOf('.') === -1) {
+            basePath = '/' + firstSegment + '/';
           }
         }
         
-        // Extract the actual route from the path
-        var actualPath = path;
-        
-        // Remove base path if it exists
-        if (basePath && actualPath.startsWith(basePath)) {
-          actualPath = actualPath.substring(basePath.length);
-        }
-        
-        // Remove leading/trailing slashes and index.html
-        actualPath = actualPath.replace(/^\/+|\/+$/g, '').replace(/\/index\.html$/g, '');
-        
-        // Ensure path starts with /
-        if (!actualPath || actualPath === '') {
-          actualPath = '/';
-        } else if (!actualPath.startsWith('/')) {
-          actualPath = '/' + actualPath;
-        }
-        
-        // Store the original path in sessionStorage before redirecting
-        if (actualPath !== '/' && actualPath !== '/index.html') {
-          sessionStorage.setItem('githubPagesRedirect', actualPath);
-        }
-        
-        // Redirect to index.html
+        // Redirect to index.html with the correct base path
         var redirectUrl = basePath + 'index.html' + search + (hash || '');
         window.location.replace(redirectUrl);
       })();

@@ -13,12 +13,12 @@ if (typeof window !== 'undefined' && window.sessionStorage) {
   const storedPath = sessionStorage.getItem('githubPagesRedirect');
   if (storedPath) {
     sessionStorage.removeItem('githubPagesRedirect');
-    const basePath = '';
     const currentPath = window.location.pathname;
     
     // Only restore if we're on index.html
-    if (currentPath.includes('/index.html') || currentPath === basePath + '/') {
-      const newPath = basePath + storedPath + window.location.search + window.location.hash;
+    if (currentPath.includes('/index.html') || currentPath.endsWith('/')) {
+      // Use the stored path directly (it already includes base path if needed)
+      const newPath = storedPath + window.location.search + window.location.hash;
       window.history.replaceState(null, '', newPath);
     }
   }
