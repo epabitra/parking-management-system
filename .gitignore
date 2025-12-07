@@ -1,0 +1,228 @@
+# ============================================================================
+# Dependencies
+# ============================================================================
+node_modules/
+/.pnp
+.pnp.js
+.pnp.*
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# ============================================================================
+# Testing
+# ============================================================================
+/coverage
+*.lcov
+.nyc_output
+test-*.html
+test-*.js
+*.test.js
+*.test.jsx
+*.spec.js
+*.spec.jsx
+__tests__/
+*.snap
+
+# ============================================================================
+# Production Build
+# ============================================================================
+/dist
+/build
+/.vite
+# Keep 404.html in root for GitHub Pages (will be copied from public/)
+!404.html
+
+# ============================================================================
+# Environment Variables & Secrets
+# ============================================================================
+# NEVER commit these files - they contain sensitive data
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.*.local
+.env.backup
+.env.old
+
+# Allow .env.example as a template (should be committed)
+!.env.example
+
+# ============================================================================
+# Logs
+# ============================================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log.*
+
+# ============================================================================
+# Editor Directories and Files
+# ============================================================================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ============================================================================
+# OS Files
+# ============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# ============================================================================
+# Temporary Files
+# ============================================================================
+*.tmp
+*.temp
+.cache/
+.temp/
+.tmp/
+*.bak
+*.backup
+*.old
+*.orig
+
+# ============================================================================
+# Firebase & Service Account Keys
+# ============================================================================
+# Firebase service account keys (if any)
+*-firebase-adminsdk-*.json
+firebase-adminsdk-*.json
+serviceAccountKey.json
+google-services.json
+GoogleService-Info.plist
+
+# ============================================================================
+# Google Apps Script - Exclude All Script Files
+# ============================================================================
+# Exclude Google Apps Script files
+GOOGLE_APPS_SCRIPT*.js
+*GOOGLE_APPS_SCRIPT*.js
+*credentials*.json
+*secret*.json
+*key*.json
+appsscript.json.backup
+
+# ============================================================================
+# Package Manager Locks (Optional)
+# ============================================================================
+# Uncomment if you want to ignore lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ============================================================================
+# Vite
+# ============================================================================
+.vite/
+vite.config.js.timestamp-*
+
+# ============================================================================
+# Build Artifacts
+# ============================================================================
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+
+# ============================================================================
+# Documentation Files - Exclude All Markdown Files
+# ============================================================================
+# Exclude all .md files from git
+*.md
+
+# ============================================================================
+# Assets & Media (Temporary/Generated)
+# ============================================================================
+# Exclude temporary assets folder if it contains generated files
+assets/c__Users_*/
+assets/temp/
+assets/generated/
+
+# ============================================================================
+# Database & Backup Files
+# ============================================================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.dump
+*.backup
+*.bak
+
+# ============================================================================
+# SSL Certificates & Keys
+# ============================================================================
+*.pem
+*.key
+*.crt
+*.cert
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# ============================================================================
+# CI/CD Secrets
+# ============================================================================
+.github/secrets/
+.github/workflows/*.secret.*
+.secrets/
+
+# ============================================================================
+# Miscellaneous
+# ============================================================================
+*.pid
+*.seed
+*.pid.lock
+.npm
+.eslintcache
+.stylelintcache
+.parcel-cache
+.next
+.nuxt
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.vscode-test
+.yarn-integrity
