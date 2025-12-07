@@ -5,29 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Redirecting...</title>
     <script>
-      // GitHub Pages SPA routing fix - Simple redirect to index.html
+      // GitHub Pages SPA routing fix - Redirect to index.html
       (function() {
         var path = window.location.pathname;
-        var basePath = '';
         var search = window.location.search;
         var hash = window.location.hash;
+        
+        // Get the base path from the current location
+        // For project pages: /repo-name/
+        // For user pages: /
+        var pathParts = path.split('/').filter(function(p) { return p; });
+        var basePath = '';
+        
+        // If we're on a 404 page, try to determine base path
+        // Common pattern: /repo-name/admin/dashboard -> base is /repo-name/
+        if (pathParts.length > 0 && pathParts[0] !== 'index.html') {
+          // Check if first part looks like a repo name (not a route)
+          // Routes typically don't have dots or special chars
+          var firstPart = pathParts[0];
+          if (firstPart.indexOf('.') === -1 && firstPart !== 'admin' && firstPart !== '404.html') {
+            basePath = '/' + firstPart + '/';
+          }
+        }
         
         // Extract the actual route from the path
         var actualPath = path;
         
-        // Remove base path
+        // Remove base path if it exists
         if (basePath && actualPath.startsWith(basePath)) {
           actualPath = actualPath.substring(basePath.length);
         }
         
-        // Remove any /index.html from the path
-        actualPath = actualPath.replace(/\/index\.html/g, '');
+        // Remove leading/trailing slashes and index.html
+        actualPath = actualPath.replace(/^\/+|\/+$/g, '').replace(/\/index\.html$/g, '');
         
         // Ensure path starts with /
         if (!actualPath || actualPath === '') {
           actualPath = '/';
-        }
-        if (!actualPath.startsWith('/')) {
+        } else if (!actualPath.startsWith('/')) {
           actualPath = '/' + actualPath;
         }
         
@@ -36,13 +51,9 @@
           sessionStorage.setItem('githubPagesRedirect', actualPath);
         }
         
-        // Simple redirect to index.html (without appending path to avoid loop)
-        var redirectUrl = (basePath ? basePath : '') + '/index.html' + search + (hash || '');
-        
-        // Only redirect if we're not already on index.html
-        if (!path.includes('/index.html') || path !== (basePath ? basePath : '') + '/index.html') {
-          window.location.replace(redirectUrl);
-        }
+        // Redirect to index.html
+        var redirectUrl = basePath + 'index.html' + search + (hash || '');
+        window.location.replace(redirectUrl);
       })();
     </script>
   </head>

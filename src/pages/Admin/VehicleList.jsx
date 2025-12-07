@@ -25,12 +25,27 @@ const VehicleList = () => {
     from_date: '',
     to_date: '',
   });
+  // Local state for input fields (not applied until filter button is clicked or Enter/blur)
+  const [inputFilters, setInputFilters] = useState({
+    vehicle_number: '',
+    mobile_number: '',
+  });
   const [sortBy, setSortBy] = useState('newest');
   const userTimezone = getUserTimezone(user);
 
+  // Auto-filter only for status, dates, and sort (not for text inputs)
   useEffect(() => {
     loadVehicles();
-  }, [filters, sortBy]);
+  }, [filters.status, filters.from_date, filters.to_date, sortBy]);
+
+  const applyFilters = () => {
+    // Apply input filters to actual filters
+    setFilters(prev => ({
+      ...prev,
+      vehicle_number: inputFilters.vehicle_number,
+      mobile_number: inputFilters.mobile_number,
+    }));
+  };
 
   const loadVehicles = async () => {
     try {
@@ -144,9 +159,20 @@ const VehicleList = () => {
                   </div>
                   <input
                     type="text"
-                    value={filters.vehicle_number}
-                    onChange={(e) => setFilters({ ...filters, vehicle_number: e.target.value })}
-                    placeholder="Search vehicle number"
+                    value={inputFilters.vehicle_number}
+                    onChange={(e) => setInputFilters({ ...inputFilters, vehicle_number: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        applyFilters();
+                      }
+                    }}
+                    onBlur={() => {
+                      // Apply filter when user leaves the field
+                      if (inputFilters.vehicle_number !== filters.vehicle_number) {
+                        applyFilters();
+                      }
+                    }}
+                    placeholder="Search vehicle number (partial match)"
                     className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
                   />
                 </div>
@@ -161,9 +187,20 @@ const VehicleList = () => {
                   </div>
                   <input
                     type="text"
-                    value={filters.mobile_number}
-                    onChange={(e) => setFilters({ ...filters, mobile_number: e.target.value })}
-                    placeholder="Search mobile number"
+                    value={inputFilters.mobile_number}
+                    onChange={(e) => setInputFilters({ ...inputFilters, mobile_number: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        applyFilters();
+                      }
+                    }}
+                    onBlur={() => {
+                      // Apply filter when user leaves the field
+                      if (inputFilters.mobile_number !== filters.mobile_number) {
+                        applyFilters();
+                      }
+                    }}
+                    placeholder="Search mobile number (partial match)"
                     className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
                   />
                 </div>
@@ -199,12 +236,26 @@ const VehicleList = () => {
                 </select>
               </div>
             </div>
-            <button
-              onClick={() => setFilters({ status: '', vehicle_number: '', mobile_number: '', from_date: '', to_date: '' })}
-              className="mt-4 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-all duration-200 font-semibold"
-            >
-              Clear All Filters
-            </button>
+            <div className="flex gap-4 mt-6">
+              <button
+                onClick={applyFilters}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 font-semibold flex items-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Apply Filters
+              </button>
+              <button
+                onClick={() => {
+                  setFilters({ status: '', vehicle_number: '', mobile_number: '', from_date: '', to_date: '' });
+                  setInputFilters({ vehicle_number: '', mobile_number: '' });
+                }}
+                className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-all duration-200 font-semibold"
+              >
+                Clear All Filters
+              </button>
+            </div>
           </div>
 
           {/* Vehicle Table Card */}
