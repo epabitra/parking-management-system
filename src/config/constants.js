@@ -25,6 +25,7 @@ export const ROUTES = {
   ADMIN_VEHICLE_EDIT: '/admin/vehicles/:id/edit',
   ADMIN_DELIVERY: '/admin/delivery',
   ADMIN_EMPLOYEES: '/admin/employees',
+  ADMIN_CHANGE_PASSWORD: '/admin/change-password',
 };
 
 export const API_ACTIONS = {
@@ -49,6 +50,7 @@ export const API_ACTIONS = {
   DELETE_EMPLOYEE: 'deleteEmployee',
   LIST_EMPLOYEES: 'listEmployees',
   GET_EMPLOYEE: 'getEmployee',
+  CHANGE_PASSWORD: 'changePassword',
   
   // Dashboard
   GET_DASHBOARD_STATS: 'getDashboardStats',

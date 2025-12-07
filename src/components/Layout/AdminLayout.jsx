@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { ROUTES } from '@/config/constants';
+import { ROUTES, EMPLOYEE_ROLES } from '@/config/constants';
 
 const AdminLayout = ({ children }) => {
   const { logout, user } = useAuth();
@@ -38,7 +38,8 @@ const AdminLayout = ({ children }) => {
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
-  const menuItems = [
+  // Filter menu items based on user role
+  const allMenuItems = [
     {
       path: ROUTES.ADMIN_DASHBOARD,
       label: 'Dashboard',
@@ -47,6 +48,7 @@ const AdminLayout = ({ children }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
+      roles: [EMPLOYEE_ROLES.ADMIN, EMPLOYEE_ROLES.EMPLOYEE], // All users
     },
     {
       path: ROUTES.ADMIN_REGISTER,
@@ -56,6 +58,7 @@ const AdminLayout = ({ children }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>
       ),
+      roles: [EMPLOYEE_ROLES.ADMIN, EMPLOYEE_ROLES.EMPLOYEE], // All users
     },
     {
       path: ROUTES.ADMIN_VEHICLES,
@@ -65,6 +68,7 @@ const AdminLayout = ({ children }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
       ),
+      roles: [EMPLOYEE_ROLES.ADMIN, EMPLOYEE_ROLES.EMPLOYEE], // All users
     },
     {
       path: ROUTES.ADMIN_DELIVERY,
@@ -74,6 +78,7 @@ const AdminLayout = ({ children }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
+      roles: [EMPLOYEE_ROLES.ADMIN, EMPLOYEE_ROLES.EMPLOYEE], // All users
     },
     {
       path: ROUTES.ADMIN_EMPLOYEES,
@@ -83,8 +88,14 @@ const AdminLayout = ({ children }) => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
         </svg>
       ),
+      roles: [EMPLOYEE_ROLES.ADMIN], // Only admins
     },
   ];
+  
+  // Filter menu items based on user role
+  const menuItems = allMenuItems.filter(item => 
+    item.roles.includes(user?.role || EMPLOYEE_ROLES.EMPLOYEE)
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -207,6 +218,23 @@ const AdminLayout = ({ children }) => {
               </div>
             </div>
           )}
+          <Link
+            to={ROUTES.ADMIN_CHANGE_PASSWORD}
+            className="w-full flex items-center space-x-3 px-4 py-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 hover:text-blue-300 rounded-xl transition-all duration-200 group"
+            onClick={() => {
+              if (isMobile) {
+                setMobileMenuOpen(false);
+                setSidebarOpen(false);
+              }
+            }}
+          >
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            <span className={`font-medium transition-all duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 lg:opacity-0'}`}>
+              Change Password
+            </span>
+          </Link>
           <button
             onClick={() => {
               handleLogout();

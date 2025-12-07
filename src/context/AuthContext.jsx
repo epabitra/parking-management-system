@@ -92,7 +92,11 @@ export const AuthProvider = ({ children }) => {
         setUser(result.user);
         setIsAuthenticated(true);
         toast.success('Login successful');
-        return { success: true };
+        return { 
+          success: true, 
+          user: result.user,
+          requiresPasswordChange: result.requiresPasswordChange || false,
+        };
       }
       
       throw new Error('Login failed');

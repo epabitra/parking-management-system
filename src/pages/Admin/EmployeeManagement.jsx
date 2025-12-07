@@ -28,6 +28,8 @@ const EmployeeManagement = () => {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm();
 
@@ -61,13 +63,33 @@ const EmployeeManagement = () => {
 
     try {
       setSubmitting(true);
+      
+      // Prepare employee data
+      const employeeData = {
+        name: data.name,
+        email: data.email,
+        mobile_number: data.mobile_number || '',
+        role: data.role || 'employee',
+        timezone: data.timezone || 'UTC',
+        is_active: data.is_active !== undefined ? data.is_active : true,
+      };
+      
+      // Only include password if provided (for new employees, default is Test@123; for updates, it's optional)
+      if (data.password && data.password.trim() !== '') {
+        employeeData.password = data.password;
+      } else if (!editingEmployee) {
+        // Use default password for new employees
+        employeeData.password = 'Test@123';
+      }
+      
       let response;
 
       if (editingEmployee) {
-        response = await parkingAPI.updateEmployee(editingEmployee.id, data);
+        employeeData.id = editingEmployee.id;
+        response = await parkingAPI.updateEmployee(editingEmployee.id, employeeData);
         toast.success(SUCCESS_MESSAGES.EMPLOYEE_UPDATED);
       } else {
-        response = await parkingAPI.addEmployee(data);
+        response = await parkingAPI.addEmployee(employeeData);
         toast.success(SUCCESS_MESSAGES.EMPLOYEE_ADDED);
       }
 
@@ -86,7 +108,14 @@ const EmployeeManagement = () => {
 
   const handleEdit = (employee) => {
     setEditingEmployee(employee);
-    reset(employee);
+    // Ensure is_active is properly set (convert to boolean if needed)
+    const employeeData = {
+      ...employee,
+      is_active: employee.is_active !== undefined 
+        ? (employee.is_active === true || employee.is_active === 'true' || employee.is_active === 1)
+        : true,
+    };
+    reset(employeeData);
     setShowForm(true);
   };
 
@@ -161,7 +190,9 @@ const EmployeeManagement = () => {
                 onClick={() => {
                   setShowForm(true);
                   setEditingEmployee(null);
-                  reset();
+                  reset({
+                    is_active: true, // Default to active for new employees
+                  });
                 }}
                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 font-semibold flex items-center"
               >
@@ -207,14 +238,58 @@ const EmployeeManagement = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Email <span className="text-gray-400 text-xs font-normal">(Optional)</span>
+                      Email <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
-                      {...register('email')}
+                      {...register('email', { 
+                        required: 'Email is required',
+                        pattern: {
+                          value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                          message: 'Invalid email address'
+                        }
+                      })}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 outline-none"
                       placeholder="employee@example.com"
                     />
+                    {errors.email && (
+                      <p className="mt-2 text-sm text-red-600 flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {errors.email.message}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      Password {!editingEmployee && <span className="text-red-500">*</span>}
+                      {editingEmployee && <span className="text-gray-400 text-xs font-normal">(Leave empty to keep current password)</span>}
+                    </label>
+                    <input
+                      type="password"
+                      {...register('password', { 
+                        required: !editingEmployee ? 'Password is required' : false,
+                        minLength: {
+                          value: 6,
+                          message: 'Password must be at least 6 characters'
+                        }
+                      })}
+                      defaultValue={!editingEmployee ? 'Test@123' : ''}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 outline-none"
+                      placeholder={editingEmployee ? "Enter new password (optional)" : "Enter password (default: Test@123)"}
+                    />
+                    {!editingEmployee && (
+                      <p className="mt-1 text-xs text-gray-500">Default password: <span className="font-mono font-semibold">Test@123</span> (employee must change on first login)</p>
+                    )}
+                    {errors.password && (
+                      <p className="mt-2 text-sm text-red-600 flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        {errors.password.message}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -264,11 +339,16 @@ const EmployeeManagement = () => {
                         <input
                           type="checkbox"
                           {...register('is_active')}
-                          defaultChecked={true}
+                          checked={watch('is_active') !== undefined ? watch('is_active') : true}
+                          onChange={(e) => setValue('is_active', e.target.checked, { shouldValidate: true })}
                           className="sr-only"
                         />
-                        <div className="block w-14 h-8 rounded-full transition-colors duration-200 bg-gray-300"></div>
-                        <div className="absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform duration-200"></div>
+                        <div className={`block w-14 h-8 rounded-full transition-colors duration-200 ${
+                          watch('is_active') !== undefined && watch('is_active') ? 'bg-green-500' : 'bg-gray-300'
+                        }`}></div>
+                        <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-transform duration-200 ${
+                          watch('is_active') !== undefined && watch('is_active') ? 'translate-x-6' : 'translate-x-0'
+                        }`}></div>
                       </div>
                       <span className="ml-4 text-sm font-semibold text-gray-700">Active Status</span>
                     </label>

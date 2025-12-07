@@ -12,6 +12,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import AdminRoute from '@/components/AdminRoute';
 import ScrollToTop from '@/components/ScrollToTop';
 import { ROUTES } from '@/config/constants';
 
@@ -26,6 +27,7 @@ import VehicleList from '@/pages/Admin/VehicleList';
 import EditVehicle from '@/pages/Admin/EditVehicle';
 import DeliveryRequest from '@/pages/Admin/DeliveryRequest';
 import EmployeeManagement from '@/pages/Admin/EmployeeManagement';
+import ChangePassword from '@/pages/Admin/ChangePassword';
 
 function App() {
   return (
@@ -93,8 +95,20 @@ function App() {
                 path={ROUTES.ADMIN_EMPLOYEES}
                 element={
                   <ProtectedRoute>
+                    <AdminRoute>
+                      <AdminLayout>
+                        <EmployeeManagement />
+                      </AdminLayout>
+                    </AdminRoute>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path={ROUTES.ADMIN_CHANGE_PASSWORD}
+                element={
+                  <ProtectedRoute>
                     <AdminLayout>
-                      <EmployeeManagement />
+                      <ChangePassword />
                     </AdminLayout>
                   </ProtectedRoute>
                 }

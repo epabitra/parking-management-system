@@ -662,6 +662,34 @@ export const parkingAPI = {
       throw error;
     }
   },
+
+  /**
+   * Change Password
+   */
+  changePassword: async (currentPassword, newPassword) => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const params = new URLSearchParams();
+      params.append('action', API_ACTIONS.CHANGE_PASSWORD);
+      params.append('token', token);
+      params.append('current_password', currentPassword);
+      params.append('new_password', newPassword);
+      
+      const response = await apiClient.post('', params.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      return response;
+    } catch (error) {
+      console.error('Change password error:', error);
+      throw error;
+    }
+  },
 };
 
 export default parkingAPI;

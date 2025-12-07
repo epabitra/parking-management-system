@@ -40,8 +40,15 @@ const AdminLogin = () => {
       const result = await login(data.email, data.password);
 
       if (result.success) {
-        const from = location.state?.from?.pathname || ROUTES.ADMIN_DASHBOARD;
-        navigate(from, { replace: true });
+        // Check if password change is required
+        if (result.requiresPasswordChange) {
+          // Redirect to change password page
+          navigate(ROUTES.ADMIN_CHANGE_PASSWORD, { replace: true });
+          toast.info('Please change your password before continuing');
+        } else {
+          const from = location.state?.from?.pathname || ROUTES.ADMIN_DASHBOARD;
+          navigate(from, { replace: true });
+        }
       } else {
         setError(result.error || 'Login failed');
       }

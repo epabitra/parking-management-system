@@ -77,12 +77,10 @@ class AuthService {
           refreshTokenStorage.set(refreshToken);
         }
         
-        // Store user data (including role and timezone)
-        if (user) {
-          userStorage.set(user);
-        } else if (responseData.data) {
-          // Store user from response data
-          userStorage.set(responseData.data.user || { email });
+        // Store user data (including role, timezone, and password change requirement)
+        const userData = user || responseData.data?.user || { email };
+        if (userData) {
+          userStorage.set(userData);
         }
         
         // Schedule token refresh
@@ -91,10 +89,13 @@ class AuthService {
         }
         
         console.log('✅ AuthService: Login successful, token stored');
+        console.log('User data:', userData);
+        console.log('Requires password change:', userData?.requires_password_change);
         
         return {
           success: true,
-          user: user || { email },
+          user: userData,
+          requiresPasswordChange: userData?.requires_password_change === true,
         };
       }
       
