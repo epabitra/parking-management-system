@@ -54,8 +54,141 @@ const EditVehicle = () => {
     }
   };
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
+  // Camera capture function for desktop/tablets
+  const captureFromCamera = async () => {
+    try {
+      // Check if MediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error('Camera access is not available in your browser');
+        return;
+      }
+
+      // Request camera access
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } // Prefer back camera on mobile
+      });
+
+      // Create video element to show camera preview
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.style.width = '100%';
+      video.style.maxHeight = '400px';
+      video.style.objectFit = 'cover';
+      video.style.borderRadius = '12px';
+
+      // Create modal for camera preview
+      const modal = document.createElement('div');
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100%';
+      modal.style.height = '100%';
+      modal.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+      modal.style.zIndex = '9999';
+      modal.style.display = 'flex';
+      modal.style.flexDirection = 'column';
+      modal.style.alignItems = 'center';
+      modal.style.justifyContent = 'center';
+      modal.style.padding = '20px';
+
+      const container = document.createElement('div');
+      container.style.maxWidth = '600px';
+      container.style.width = '100%';
+      container.style.display = 'flex';
+      container.style.flexDirection = 'column';
+      container.style.alignItems = 'center';
+      container.style.gap = '20px';
+
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.display = 'flex';
+      buttonContainer.style.gap = '10px';
+      buttonContainer.style.width = '100%';
+      buttonContainer.style.justifyContent = 'center';
+
+      const captureButton = document.createElement('button');
+      captureButton.textContent = '📷 Capture Photo';
+      captureButton.style.padding = '12px 24px';
+      captureButton.style.backgroundColor = '#3b82f6';
+      captureButton.style.color = 'white';
+      captureButton.style.border = 'none';
+      captureButton.style.borderRadius = '8px';
+      captureButton.style.fontSize = '16px';
+      captureButton.style.fontWeight = 'bold';
+      captureButton.style.cursor = 'pointer';
+
+      const cancelButton = document.createElement('button');
+      cancelButton.textContent = 'Cancel';
+      cancelButton.style.padding = '12px 24px';
+      cancelButton.style.backgroundColor = '#6b7280';
+      cancelButton.style.color = 'white';
+      cancelButton.style.border = 'none';
+      cancelButton.style.borderRadius = '8px';
+      cancelButton.style.fontSize = '16px';
+      cancelButton.style.fontWeight = 'bold';
+      cancelButton.style.cursor = 'pointer';
+
+      container.appendChild(video);
+      buttonContainer.appendChild(captureButton);
+      buttonContainer.appendChild(cancelButton);
+      container.appendChild(buttonContainer);
+      modal.appendChild(container);
+      document.body.appendChild(modal);
+
+      // Capture photo
+      const capturePhoto = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+
+        // Convert canvas to blob
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            toast.error('Failed to capture image');
+            document.body.removeChild(modal);
+            return;
+          }
+
+          // Create a File object from blob
+          const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          
+          // Process the file like a regular upload
+          await processImageFile(file);
+          
+          document.body.removeChild(modal);
+        }, 'image/jpeg', 0.9);
+      };
+
+      captureButton.onclick = capturePhoto;
+      cancelButton.onclick = () => {
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(modal);
+      };
+
+      // Auto-focus and show preview
+      video.onloadedmetadata = () => {
+        video.play();
+      };
+    } catch (error) {
+      console.error('Camera error:', error);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.error('Camera permission denied. Please allow camera access in your browser settings.');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        toast.error('No camera found on your device');
+      } else {
+        toast.error('Failed to access camera: ' + error.message);
+      }
+    }
+  };
+
+  // Process image file (used by both file upload and camera capture)
+  const processImageFile = async (file) => {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
@@ -75,6 +208,12 @@ const EditVehicle = () => {
     } finally {
       setUploadingImage(false);
     }
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    await processImageFile(file);
   };
 
   const onSubmit = async (data) => {

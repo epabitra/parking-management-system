@@ -37,8 +37,141 @@ const RegisterVehicle = () => {
 
   const mobileNumber = watch('mobile_number');
 
-  const handleImageUpload = async (e, index = null) => {
-    const file = e.target.files[0];
+  // Camera capture function for desktop/tablets
+  const captureFromCamera = async (index = null) => {
+    try {
+      // Check if MediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error('Camera access is not available in your browser');
+        return;
+      }
+
+      // Request camera access
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } // Prefer back camera on mobile
+      });
+
+      // Create video element to show camera preview
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.style.width = '100%';
+      video.style.maxHeight = '400px';
+      video.style.objectFit = 'cover';
+      video.style.borderRadius = '12px';
+
+      // Create modal for camera preview
+      const modal = document.createElement('div');
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100%';
+      modal.style.height = '100%';
+      modal.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+      modal.style.zIndex = '9999';
+      modal.style.display = 'flex';
+      modal.style.flexDirection = 'column';
+      modal.style.alignItems = 'center';
+      modal.style.justifyContent = 'center';
+      modal.style.padding = '20px';
+
+      const container = document.createElement('div');
+      container.style.maxWidth = '600px';
+      container.style.width = '100%';
+      container.style.display = 'flex';
+      container.style.flexDirection = 'column';
+      container.style.alignItems = 'center';
+      container.style.gap = '20px';
+
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.display = 'flex';
+      buttonContainer.style.gap = '10px';
+      buttonContainer.style.width = '100%';
+      buttonContainer.style.justifyContent = 'center';
+
+      const captureButton = document.createElement('button');
+      captureButton.textContent = '📷 Capture Photo';
+      captureButton.style.padding = '12px 24px';
+      captureButton.style.backgroundColor = '#3b82f6';
+      captureButton.style.color = 'white';
+      captureButton.style.border = 'none';
+      captureButton.style.borderRadius = '8px';
+      captureButton.style.fontSize = '16px';
+      captureButton.style.fontWeight = 'bold';
+      captureButton.style.cursor = 'pointer';
+
+      const cancelButton = document.createElement('button');
+      cancelButton.textContent = 'Cancel';
+      cancelButton.style.padding = '12px 24px';
+      cancelButton.style.backgroundColor = '#6b7280';
+      cancelButton.style.color = 'white';
+      cancelButton.style.border = 'none';
+      cancelButton.style.borderRadius = '8px';
+      cancelButton.style.fontSize = '16px';
+      cancelButton.style.fontWeight = 'bold';
+      cancelButton.style.cursor = 'pointer';
+
+      container.appendChild(video);
+      buttonContainer.appendChild(captureButton);
+      buttonContainer.appendChild(cancelButton);
+      container.appendChild(buttonContainer);
+      modal.appendChild(container);
+      document.body.appendChild(modal);
+
+      // Capture photo
+      const capturePhoto = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+
+        // Convert canvas to blob
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            toast.error('Failed to capture image');
+            document.body.removeChild(modal);
+            return;
+          }
+
+          // Create a File object from blob
+          const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          
+          // Process the file like a regular upload
+          await processImageFile(file, index);
+          
+          document.body.removeChild(modal);
+        }, 'image/jpeg', 0.9);
+      };
+
+      captureButton.onclick = capturePhoto;
+      cancelButton.onclick = () => {
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(modal);
+      };
+
+      // Auto-focus and show preview
+      video.onloadedmetadata = () => {
+        video.play();
+      };
+    } catch (error) {
+      console.error('Camera error:', error);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.error('Camera permission denied. Please allow camera access in your browser settings.');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        toast.error('No camera found on your device');
+      } else {
+        toast.error('Failed to access camera: ' + error.message);
+      }
+    }
+  };
+
+  // Process image file (used by both file upload and camera capture)
+  const processImageFile = async (file, index = null) => {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
@@ -52,7 +185,7 @@ const RegisterVehicle = () => {
         folder: 'vehicles',
       });
       
-      if (index !== null && bulkMode) {
+      if (index !== null && bulkMode && bulkImageMode === 'multiple') {
         const newUrls = [...imageUrls];
         newUrls[index] = firebaseUrl;
         setImageUrls(newUrls);
@@ -66,6 +199,12 @@ const RegisterVehicle = () => {
     } finally {
       setUploadingImage(false);
     }
+  };
+
+  const handleImageUpload = async (e, index = null) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    await processImageFile(file, index);
   };
   
   const addVehicleField = () => {
@@ -522,18 +661,29 @@ const RegisterVehicle = () => {
                           {bulkImageMode === 'single' ? (
                             <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-blue-400 transition-colors">
                               <p className="text-sm font-medium text-gray-700 mb-3">Upload One Image for All Vehicles:</p>
-                              <label className="block">
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={handleImageUpload}
+                              <div className="flex gap-2 mb-3">
+                                <label className="flex-1">
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    onChange={handleImageUpload}
+                                    disabled={uploadingImage}
+                                    className="hidden"
+                                  />
+                                  <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
+                                    📁 Choose File
+                                  </div>
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => captureFromCamera()}
                                   disabled={uploadingImage}
-                                  className="hidden"
-                                />
-                                <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
-                                  {imageUrl ? 'Change Image' : 'Upload Image'}
-                                </div>
-                              </label>
+                                  className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer transition-colors text-center font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  📷 Use Camera
+                                </button>
+                              </div>
                               {imageUrl && (
                                 <img src={imageUrl} alt="Vehicle Depositor" className="w-full h-40 object-cover rounded-xl mt-3 border-2 border-gray-200" />
                               )}
@@ -550,18 +700,29 @@ const RegisterVehicle = () => {
                               {vehicleNumbers.map((vn, index) => (
                                 <div key={index} className="border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-blue-400 transition-colors">
                                   <p className="text-sm font-medium text-gray-700 mb-3">Vehicle {index + 1}: <span className="font-bold">{vn || 'Not entered'}</span></p>
-                                  <label className="block">
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(e) => handleImageUpload(e, index)}
+                                  <div className="flex gap-2 mb-3">
+                                    <label className="flex-1">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        onChange={(e) => handleImageUpload(e, index)}
+                                        disabled={uploadingImage}
+                                        className="hidden"
+                                      />
+                                      <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
+                                        📁 Choose File
+                                      </div>
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={() => captureFromCamera(index)}
                                       disabled={uploadingImage}
-                                      className="hidden"
-                                    />
-                                    <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
-                                      {imageUrls[index] ? 'Change Image' : 'Upload Image'}
-                                    </div>
-                                  </label>
+                                      className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer transition-colors text-center font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      📷 Use Camera
+                                    </button>
+                                  </div>
                                   {imageUrls[index] && (
                                     <img src={imageUrls[index]} alt={`Vehicle ${index + 1}`} className="w-full h-40 object-cover rounded-xl mt-3 border-2 border-gray-200" />
                                   )}
@@ -578,18 +739,29 @@ const RegisterVehicle = () => {
                         </div>
                       ) : (
                         <>
-                          <label className="block">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleImageUpload}
+                          <div className="flex gap-2 mb-3">
+                            <label className="flex-1">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={handleImageUpload}
+                                disabled={uploadingImage}
+                                className="hidden"
+                              />
+                              <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
+                                📁 Choose File
+                              </div>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => captureFromCamera()}
                               disabled={uploadingImage}
-                              className="hidden"
-                            />
-                            <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
-                              {imageUrl ? 'Change Image' : 'Upload Vehicle/Depositor Image'}
-                            </div>
-                          </label>
+                              className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer transition-colors text-center font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              📷 Use Camera
+                            </button>
+                          </div>
                           {imageUrl && (
                             <img src={imageUrl} alt="Vehicle" className="w-full h-64 object-cover rounded-xl border-2 border-gray-200" />
                           )}

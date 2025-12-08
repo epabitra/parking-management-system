@@ -202,8 +202,10 @@ export const parkingAPI = {
 
   /**
    * Discharge Vehicle (supports bulk discharge)
+   * @param {string|string[]} vehicleIds - Vehicle ID(s) to discharge
+   * @param {object} options - Additional options (verification_method, discharge_image_url)
    */
-  dischargeVehicle: async (vehicleIds) => {
+  dischargeVehicle: async (vehicleIds, options = {}) => {
     try {
       const token = tokenStorage.get();
       if (!token) {
@@ -219,6 +221,14 @@ export const parkingAPI = {
         params.append('id', JSON.stringify(vehicleIds));
       } else {
         params.append('id', vehicleIds);
+      }
+
+      // Add optional discharge data
+      if (options.verification_method) {
+        params.append('verification_method', options.verification_method);
+      }
+      if (options.discharge_image_url) {
+        params.append('discharge_image_url', options.discharge_image_url);
       }
       
       const response = await apiClient.post('', params.toString(), {

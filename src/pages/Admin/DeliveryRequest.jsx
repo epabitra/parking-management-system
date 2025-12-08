@@ -33,9 +33,11 @@ const DeliveryRequest = () => {
   const [verifyingOTP, setVerifyingOTP] = useState(false);
   const [discharging, setDischarging] = useState(false);
   const [mobileForOTP, setMobileForOTP] = useState('');
-  const [verificationMethod, setVerificationMethod] = useState('otp'); // 'otp' or 'image'
+  const [verificationMethod, setVerificationMethod] = useState('otp'); // 'otp', 'image', or 'manual'
   const [imageVerified, setImageVerified] = useState(false);
   const [selectedVehicleImages, setSelectedVehicleImages] = useState([]);
+  const [dischargeImageUrl, setDischargeImageUrl] = useState(''); // Image of person who took the bike
+  const [uploadingDischargeImage, setUploadingDischargeImage] = useState(false);
   const userTimezone = getUserTimezone(user);
 
   // Auto-filter only for dates (not for text inputs)
@@ -198,6 +200,33 @@ const DeliveryRequest = () => {
     toast.success('Image verified successfully');
   };
 
+  // Handle discharge image upload
+  const handleDischargeImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    try {
+      setUploadingDischargeImage(true);
+      const firebaseUrl = await firebaseStorageService.uploadImage(file, {
+        folder: 'discharge',
+        onProgress: (progress) => {
+          // Progress tracking
+        }
+      });
+      setDischargeImageUrl(firebaseUrl);
+      toast.success('Discharge image uploaded successfully');
+    } catch (error) {
+      toast.error(error.message || 'Failed to upload image');
+    } finally {
+      setUploadingDischargeImage(false);
+    }
+  };
+
   const handleDischarge = async () => {
     if (selectedVehicles.length === 0) {
       toast.error('Please select at least one vehicle');
@@ -216,10 +245,14 @@ const DeliveryRequest = () => {
         return;
       }
     }
+    // Manual method doesn't need verification
 
     try {
       setDischarging(true);
-      const response = await parkingAPI.dischargeVehicle(selectedVehicles);
+      const response = await parkingAPI.dischargeVehicle(selectedVehicles, {
+        verification_method: verificationMethod,
+        discharge_image_url: dischargeImageUrl || '',
+      });
       if (response.success) {
         toast.success(`${response.data?.dischargedCount || selectedVehicles.length} vehicle(s) discharged successfully`);
         setSelectedVehicles([]);
@@ -228,6 +261,7 @@ const DeliveryRequest = () => {
         setMobileForOTP('');
         setImageVerified(false);
         setSelectedVehicleImages([]);
+        setDischargeImageUrl(''); // Reset discharge image
         setVerificationMethod('otp'); // Reset to default
         loadVehicles();
       } else {
@@ -392,10 +426,12 @@ const DeliveryRequest = () => {
 
               {/* Verification Method Selection */}
               <div className="mb-6 bg-white rounded-xl p-4 border-2 border-gray-200">
-                <div className="flex items-center space-x-6">
+                <div className="flex flex-wrap items-center gap-4">
                   <label className="flex items-center cursor-pointer">
                     <input
                       type="radio"
+                      name="verificationMethod"
+                      value="otp"
                       checked={verificationMethod === 'otp'}
                       onChange={() => {
                         setVerificationMethod('otp');
@@ -410,6 +446,8 @@ const DeliveryRequest = () => {
                   <label className="flex items-center cursor-pointer">
                     <input
                       type="radio"
+                      name="verificationMethod"
+                      value="image"
                       checked={verificationMethod === 'image'}
                       onChange={() => {
                         setVerificationMethod('image');
@@ -420,6 +458,22 @@ const DeliveryRequest = () => {
                       className="w-5 h-5 text-green-600 focus:ring-green-500"
                     />
                     <span className="ml-3 font-semibold text-gray-800">Image Verification</span>
+                  </label>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="verificationMethod"
+                      value="manual"
+                      checked={verificationMethod === 'manual'}
+                      onChange={() => {
+                        setVerificationMethod('manual');
+                        setOtpSent(false);
+                        setOtpCode('');
+                        setImageVerified(false);
+                      }}
+                      className="w-5 h-5 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="ml-3 font-semibold text-gray-800">Manual (No Verification)</span>
                   </label>
                 </div>
               </div>
@@ -475,6 +529,81 @@ const DeliveryRequest = () => {
                   )}
                 </div>
               )}
+
+              {/* Manual Verification Section */}
+              {verificationMethod === 'manual' && (
+                <div className="space-y-4">
+                  <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
+                    <div className="flex items-center mb-2">
+                      <svg className="w-6 h-6 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <h3 className="text-lg font-bold text-yellow-800">Manual Discharge</h3>
+                    </div>
+                    <p className="text-sm text-yellow-700">No verification required. Click the discharge button below to proceed.</p>
+                  </div>
+                  <button
+                    onClick={handleDischarge}
+                    disabled={discharging}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {discharging ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Discharging...
+                      </span>
+                    ) : (
+                      `Discharge ${selectedVehicles.length} Vehicle(s)`
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Discharge Image Upload (Optional - for all methods) */}
+              <div className="mt-6 bg-white rounded-xl p-4 border-2 border-gray-200">
+                <label className="block text-sm font-bold text-gray-700 mb-3">
+                  📸 Discharge Image (Optional)
+                  <span className="text-gray-500 text-xs font-normal ml-2">- Photo of person who took the vehicle</span>
+                </label>
+                <div className="flex gap-2">
+                  <label className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleDischargeImageUpload}
+                      disabled={uploadingDischargeImage}
+                      className="hidden"
+                    />
+                    <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {dischargeImageUrl ? '📁 Change Image' : '📁 Choose File'}
+                    </div>
+                  </label>
+                  {dischargeImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setDischargeImageUrl('')}
+                      className="px-4 py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl transition-colors font-semibold"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                {dischargeImageUrl && (
+                  <div className="mt-3">
+                    <img src={dischargeImageUrl} alt="Discharge" className="w-full h-48 object-cover rounded-xl border-2 border-gray-200" />
+                  </div>
+                )}
+                {uploadingDischargeImage && (
+                  <div className="text-center py-4">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                    <p className="text-sm text-gray-600 mt-2">Uploading...</p>
+                  </div>
+                )}
+              </div>
 
               {/* Image Verification Section */}
               {verificationMethod === 'image' && (
