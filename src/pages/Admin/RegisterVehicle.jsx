@@ -119,37 +119,84 @@ const RegisterVehicle = () => {
       modal.appendChild(container);
       document.body.appendChild(modal);
 
+      // Track if capture is in progress
+      let isCapturing = false;
+
       // Capture photo
-      const capturePhoto = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0);
+      const capturePhoto = async () => {
+        // Prevent multiple clicks
+        if (isCapturing) {
+          return;
+        }
+        
+        isCapturing = true;
+        
+        // Disable buttons immediately
+        captureButton.disabled = true;
+        captureButton.style.opacity = '0.5';
+        captureButton.style.cursor = 'not-allowed';
+        captureButton.textContent = '📷 Capturing...';
+        cancelButton.disabled = true;
+        cancelButton.style.opacity = '0.5';
+        cancelButton.style.cursor = 'not-allowed';
 
-        // Stop all tracks
-        stream.getTracks().forEach(track => track.stop());
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0);
 
-        // Convert canvas to blob
-        canvas.toBlob(async (blob) => {
-          if (!blob) {
-            toast.error('Failed to capture image');
-            document.body.removeChild(modal);
-            return;
-          }
+          // Stop all tracks immediately after capturing
+          stream.getTracks().forEach(track => track.stop());
 
-          // Create a File object from blob
-          const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          
-          // Process the file like a regular upload
-          await processImageFile(file, index);
-          
+          // Hide video and show loading
+          video.style.display = 'none';
+          const loadingDiv = document.createElement('div');
+          loadingDiv.style.textAlign = 'center';
+          loadingDiv.style.color = 'white';
+          loadingDiv.innerHTML = `
+            <div style="margin-bottom: 20px;">
+              <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-white" style="border-color: white;"></div>
+            </div>
+            <p style="font-size: 18px; font-weight: bold;">Uploading image...</p>
+          `;
+          container.insertBefore(loadingDiv, buttonContainer);
+
+          // Convert canvas to blob
+          canvas.toBlob(async (blob) => {
+            if (!blob) {
+              toast.error('Failed to capture image');
+              document.body.removeChild(modal);
+              return;
+            }
+
+            try {
+              // Create a File object from blob
+              const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+              
+              // Process the file like a regular upload
+              await processImageFile(file, index);
+              
+              // Remove modal after successful upload
+              document.body.removeChild(modal);
+            } catch (error) {
+              console.error('Upload error:', error);
+              toast.error('Failed to upload image: ' + (error.message || 'Unknown error'));
+              document.body.removeChild(modal);
+            }
+          }, 'image/jpeg', 0.9);
+        } catch (error) {
+          console.error('Capture error:', error);
+          toast.error('Failed to capture image: ' + (error.message || 'Unknown error'));
+          stream.getTracks().forEach(track => track.stop());
           document.body.removeChild(modal);
-        }, 'image/jpeg', 0.9);
+        }
       };
 
       captureButton.onclick = capturePhoto;
       cancelButton.onclick = () => {
+        if (isCapturing) return; // Prevent cancel during capture
         stream.getTracks().forEach(track => track.stop());
         document.body.removeChild(modal);
       };
