@@ -3,7 +3,7 @@
  * Modern, beautiful table with filters and search
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { parkingAPI } from '@/services/parkingApi';
 import { VEHICLE_STATUS, SUCCESS_MESSAGES, ROUTES } from '@/config/constants';
@@ -22,6 +22,7 @@ const VehicleList = () => {
     status: '',
     vehicle_number: '',
     mobile_number: '',
+    name: '',
     from_date: '',
     to_date: '',
   });
@@ -29,15 +30,28 @@ const VehicleList = () => {
   const [inputFilters, setInputFilters] = useState({
     vehicle_number: '',
     mobile_number: '',
+    name: '',
   });
   const [sortBy, setSortBy] = useState('newest');
   const [imageModal, setImageModal] = useState({ isOpen: false, imageUrl: '', title: '' });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 0,
+  });
   const userTimezone = getUserTimezone(user);
 
   // Auto-filter only for status, dates, and sort (not for text inputs)
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }));
+  }, [filters.status, filters.from_date, filters.to_date, sortBy]);
+  
+  // Reload when filters, sort, or pagination changes
   useEffect(() => {
     loadVehicles();
-  }, [filters.status, filters.from_date, filters.to_date, sortBy]);
+  }, [loadVehicles]);
 
   const applyFilters = () => {
     // Apply input filters to actual filters
@@ -45,52 +59,55 @@ const VehicleList = () => {
       ...filters,
       vehicle_number: inputFilters.vehicle_number,
       mobile_number: inputFilters.mobile_number,
+      name: inputFilters.name,
     };
     setFilters(newFilters);
+    // Reset to page 1 when filters change
+    setPagination(prev => ({ ...prev, page: 1 }));
     // Trigger load immediately with new filters
     loadVehiclesWithFilters(newFilters);
   };
 
-  const loadVehicles = async () => {
-    await loadVehiclesWithFilters(filters);
-  };
-
-  const loadVehiclesWithFilters = async (filterParams = filters) => {
+  const loadVehiclesWithFilters = useCallback(async (filterParams = filters) => {
     try {
       setLoading(true);
-      const params = { ...filterParams, timezone: userTimezone };
+      const params = { 
+        ...filterParams, 
+        timezone: userTimezone,
+        page: pagination.page,
+        limit: pagination.pageSize,
+        sort_by: sortBy,
+      };
       if (!params.status) delete params.status;
       if (!params.vehicle_number) delete params.vehicle_number;
       if (!params.mobile_number) delete params.mobile_number;
+      if (!params.name) delete params.name;
       if (!params.from_date) delete params.from_date;
       if (!params.to_date) delete params.to_date;
       if (!params.timezone) delete params.timezone;
 
       const response = await parkingAPI.listVehicles(params);
       if (response.success) {
-        let data = response.data || [];
-        
-        if (sortBy === 'newest') {
-          data.sort((a, b) => new Date(b.registered_at || b.created_at) - new Date(a.registered_at || a.created_at));
-        } else if (sortBy === 'oldest') {
-          data.sort((a, b) => new Date(a.registered_at || a.created_at) - new Date(b.registered_at || b.created_at));
-        } else if (sortBy === 'longest_parked') {
-          data = data.filter(v => v.status === VEHICLE_STATUS.PARKED);
-          data.sort((a, b) => {
-            const aDate = new Date(a.registered_at || a.created_at);
-            const bDate = new Date(b.registered_at || b.created_at);
-            return aDate - bDate;
-          });
-        }
-        
+        const data = response.data || [];
         setVehicles(data);
+        
+        // Update pagination info from response
+        setPagination(prev => ({
+          ...prev,
+          total: response.total || 0,
+          totalPages: response.totalPages || 0,
+        }));
       }
     } catch (error) {
       toast.error(error.message || 'Failed to load vehicles');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters, pagination.page, pagination.pageSize, sortBy, userTimezone]);
+
+  const loadVehicles = useCallback(async () => {
+    await loadVehiclesWithFilters(filters);
+  }, [loadVehiclesWithFilters, filters]);
 
   const getDuration = (registeredAt) => {
     if (!registeredAt) return 'N/A';
@@ -140,8 +157,9 @@ const VehicleList = () => {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-blue-600">{vehicles.length}</p>
+                <p className="text-2xl font-bold text-blue-600">{pagination.total}</p>
                 <p className="text-sm text-gray-600">Total Vehicles</p>
+                <p className="text-xs text-gray-500 mt-1">Showing {vehicles.length} of {pagination.total}</p>
               </div>
             </div>
           </div>
@@ -154,7 +172,7 @@ const VehicleList = () => {
               </svg>
               <h2 className="text-xl font-bold text-gray-800">Filters & Search</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
                 <select
@@ -224,6 +242,34 @@ const VehicleList = () => {
                 </div>
               </div>
               <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Name</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={inputFilters.name}
+                    onChange={(e) => setInputFilters({ ...inputFilters, name: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        applyFilters();
+                      }
+                    }}
+                    onBlur={() => {
+                      // Apply filter when user leaves the field
+                      if (inputFilters.name !== filters.name) {
+                        applyFilters();
+                      }
+                    }}
+                    placeholder="Search name (partial match)"
+                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
+                  />
+                </div>
+              </div>
+              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">From Date</label>
                 <input
                   type="date"
@@ -266,8 +312,9 @@ const VehicleList = () => {
               </button>
               <button
                 onClick={() => {
-                  setFilters({ status: '', vehicle_number: '', mobile_number: '', from_date: '', to_date: '' });
-                  setInputFilters({ vehicle_number: '', mobile_number: '' });
+                  setFilters({ status: '', vehicle_number: '', mobile_number: '', name: '', from_date: '', to_date: '' });
+                  setInputFilters({ vehicle_number: '', mobile_number: '', name: '' });
+                  setPagination(prev => ({ ...prev, page: 1 }));
                 }}
                 className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-all duration-200 font-semibold"
               >
@@ -278,6 +325,52 @@ const VehicleList = () => {
 
           {/* Vehicle Table Card */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 animate-fade-in" style={{ animationDelay: '200ms' }}>
+            {/* Pagination Controls - Top */}
+            <div className="p-4 border-b-2 border-gray-100 bg-gradient-to-r from-gray-50 to-gray-100 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                  <span>Show:</span>
+                  <select
+                    value={pagination.pageSize}
+                    onChange={(e) => {
+                      setPagination(prev => ({ ...prev, pageSize: parseInt(e.target.value), page: 1 }));
+                    }}
+                    className="px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  >
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                  <span>per page</span>
+                </label>
+                <div className="text-sm text-gray-600">
+                  Page {pagination.page} of {pagination.totalPages || 1} ({pagination.total} total)
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                  disabled={pagination.page <= 1}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Previous
+                </button>
+                <button
+                  onClick={() => setPagination(prev => ({ ...prev, page: Math.min(prev.totalPages || 1, prev.page + 1) }))}
+                  disabled={pagination.page >= (pagination.totalPages || 1)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  Next
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
@@ -399,6 +492,55 @@ const VehicleList = () => {
                 </tbody>
               </table>
             </div>
+            
+            {/* Pagination Controls - Bottom */}
+            {pagination.totalPages > 1 && (
+              <div className="p-4 border-t-2 border-gray-100 bg-gradient-to-r from-gray-50 to-gray-100 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <span>Show:</span>
+                    <select
+                      value={pagination.pageSize}
+                      onChange={(e) => {
+                        setPagination(prev => ({ ...prev, pageSize: parseInt(e.target.value), page: 1 }));
+                      }}
+                      className="px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    >
+                      <option value="10">10</option>
+                      <option value="20">20</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                    </select>
+                    <span>per page</span>
+                  </label>
+                  <div className="text-sm text-gray-600">
+                    Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                    disabled={pagination.page <= 1}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setPagination(prev => ({ ...prev, page: Math.min(prev.totalPages || 1, prev.page + 1) }))}
+                    disabled={pagination.page >= (pagination.totalPages || 1)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    Next
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
