@@ -5,13 +5,10 @@ import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  // Base path for GitHub Pages
-  // For project pages (username.github.io/repo-name): use '/repo-name/'
-  // For user/organization pages (username.github.io): use '/'
-  // Update this based on your GitHub Pages URL structure
-  base: process.env.GITHUB_PAGES === 'true' && process.env.REPO_NAME 
-    ? `/${process.env.REPO_NAME}/` 
-    : '/',
+  // Base path configuration
+  // For custom domain: use '/'
+  // For GitHub Pages project pages: use '/repo-name/'
+  base: '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
