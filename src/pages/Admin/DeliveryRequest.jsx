@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { parkingAPI } from '@/services/parkingApi';
+import { firebaseStorageService } from '@/services/firebaseStorage';
 import { VEHICLE_STATUS, OTP_PURPOSE, SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/config/constants';
 import { formatInTimezone, getUserTimezone } from '@/utils/timezone';
 import { useAuth } from '@/context/AuthContext';
@@ -39,12 +40,23 @@ const DeliveryRequest = () => {
   const [dischargeImageUrl, setDischargeImageUrl] = useState(''); // Image of person who took the bike
   const [uploadingDischargeImage, setUploadingDischargeImage] = useState(false);
   const [imageModal, setImageModal] = useState({ isOpen: false, imageUrl: '', title: '' });
+  const [companies, setCompanies] = useState([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const isSuperAdmin = user?.is_super_admin || false;
   const userTimezone = getUserTimezone(user);
+
+  // Load companies for super admin
+  useEffect(() => {
+    if (isSuperAdmin) {
+      loadCompanies();
+    }
+  }, [isSuperAdmin]);
 
   // Auto-filter only for dates (not for text inputs)
   useEffect(() => {
     loadVehicles();
-  }, [filters.from_date, filters.to_date]);
+  }, [filters.from_date, filters.to_date, selectedCompanyId]);
 
   const applyFilters = () => {
     // Apply input filters to actual filters
@@ -62,6 +74,20 @@ const DeliveryRequest = () => {
     await loadVehiclesWithFilters(filters);
   };
 
+  const loadCompanies = async () => {
+    try {
+      setLoadingCompanies(true);
+      const response = await parkingAPI.listCompanies();
+      if (response.success) {
+        setCompanies(response.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load companies:', error);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
+
   const loadVehiclesWithFilters = async (filterParams = filters) => {
     try {
       setLoading(true);
@@ -69,12 +95,14 @@ const DeliveryRequest = () => {
         status: VEHICLE_STATUS.PARKED,
         ...filterParams,
         timezone: userTimezone,
+        ...(isSuperAdmin && selectedCompanyId && { company_id: selectedCompanyId }),
       };
       if (!params.vehicle_number) delete params.vehicle_number;
       if (!params.mobile_number) delete params.mobile_number;
       if (!params.from_date) delete params.from_date;
       if (!params.to_date) delete params.to_date;
       if (!params.timezone) delete params.timezone;
+      if (!params.company_id) delete params.company_id;
 
       const response = await parkingAPI.listVehicles(params);
       if (response.success) {
@@ -211,9 +239,8 @@ const DeliveryRequest = () => {
     setImageModal({ isOpen: false, imageUrl: '', title: '' });
   };
 
-  // Handle discharge image upload
-  const handleDischargeImageUpload = async (e) => {
-    const file = e.target.files[0];
+  // Process discharge image file (used by both file upload and camera capture)
+  const processDischargeImageFile = async (file) => {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
@@ -235,6 +262,193 @@ const DeliveryRequest = () => {
       toast.error(error.message || 'Failed to upload image');
     } finally {
       setUploadingDischargeImage(false);
+    }
+  };
+
+  // Handle discharge image upload from file input
+  const handleDischargeImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    await processDischargeImageFile(file);
+  };
+
+  // Camera capture function for discharge image
+  const captureDischargeImageFromCamera = async () => {
+    try {
+      // Check if MediaDevices API is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error('Camera access is not available in your browser');
+        return;
+      }
+
+      // Request camera access
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } // Prefer back camera on mobile
+      });
+
+      // Create video element to show camera preview
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.style.width = '100%';
+      video.style.maxHeight = '400px';
+      video.style.objectFit = 'cover';
+      video.style.borderRadius = '12px';
+
+      // Create modal for camera preview
+      const modal = document.createElement('div');
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100%';
+      modal.style.height = '100%';
+      modal.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+      modal.style.zIndex = '9999';
+      modal.style.display = 'flex';
+      modal.style.flexDirection = 'column';
+      modal.style.alignItems = 'center';
+      modal.style.justifyContent = 'center';
+      modal.style.padding = '20px';
+
+      const container = document.createElement('div');
+      container.style.maxWidth = '600px';
+      container.style.width = '100%';
+      container.style.display = 'flex';
+      container.style.flexDirection = 'column';
+      container.style.alignItems = 'center';
+      container.style.gap = '20px';
+
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.display = 'flex';
+      buttonContainer.style.gap = '10px';
+      buttonContainer.style.width = '100%';
+      buttonContainer.style.justifyContent = 'center';
+
+      const captureButton = document.createElement('button');
+      captureButton.textContent = '📷 Capture Photo';
+      captureButton.style.padding = '12px 24px';
+      captureButton.style.backgroundColor = '#3b82f6';
+      captureButton.style.color = 'white';
+      captureButton.style.border = 'none';
+      captureButton.style.borderRadius = '8px';
+      captureButton.style.fontSize = '16px';
+      captureButton.style.fontWeight = 'bold';
+      captureButton.style.cursor = 'pointer';
+
+      const cancelButton = document.createElement('button');
+      cancelButton.textContent = 'Cancel';
+      cancelButton.style.padding = '12px 24px';
+      cancelButton.style.backgroundColor = '#6b7280';
+      cancelButton.style.color = 'white';
+      cancelButton.style.border = 'none';
+      cancelButton.style.borderRadius = '8px';
+      cancelButton.style.fontSize = '16px';
+      cancelButton.style.fontWeight = 'bold';
+      cancelButton.style.cursor = 'pointer';
+
+      container.appendChild(video);
+      buttonContainer.appendChild(captureButton);
+      buttonContainer.appendChild(cancelButton);
+      container.appendChild(buttonContainer);
+      modal.appendChild(container);
+      document.body.appendChild(modal);
+
+      // Track if capture is in progress
+      let isCapturing = false;
+
+      // Capture photo
+      const capturePhoto = async () => {
+        // Prevent multiple clicks
+        if (isCapturing) {
+          return;
+        }
+        
+        isCapturing = true;
+        
+        // Disable buttons immediately
+        captureButton.disabled = true;
+        captureButton.style.opacity = '0.5';
+        captureButton.style.cursor = 'not-allowed';
+        captureButton.textContent = '📷 Capturing...';
+        cancelButton.disabled = true;
+        cancelButton.style.opacity = '0.5';
+        cancelButton.style.cursor = 'not-allowed';
+
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0);
+
+          // Stop all tracks immediately after capturing
+          stream.getTracks().forEach(track => track.stop());
+
+          // Hide video and show loading
+          video.style.display = 'none';
+          const loadingDiv = document.createElement('div');
+          loadingDiv.style.textAlign = 'center';
+          loadingDiv.style.color = 'white';
+          loadingDiv.innerHTML = `
+            <div style="margin-bottom: 20px;">
+              <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-white" style="border-color: white;"></div>
+            </div>
+            <p style="font-size: 18px; font-weight: bold;">Uploading image...</p>
+          `;
+          container.insertBefore(loadingDiv, buttonContainer);
+
+          // Convert canvas to blob
+          canvas.toBlob(async (blob) => {
+            if (!blob) {
+              toast.error('Failed to capture image');
+              document.body.removeChild(modal);
+              return;
+            }
+
+            try {
+              // Create a File object from blob
+              const file = new File([blob], `discharge-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+              
+              // Process the file like a regular upload
+              await processDischargeImageFile(file);
+              
+              // Remove modal after successful upload
+              document.body.removeChild(modal);
+            } catch (error) {
+              console.error('Upload error:', error);
+              toast.error('Failed to upload image: ' + (error.message || 'Unknown error'));
+              document.body.removeChild(modal);
+            }
+          }, 'image/jpeg', 0.9);
+        } catch (error) {
+          console.error('Capture error:', error);
+          toast.error('Failed to capture image: ' + (error.message || 'Unknown error'));
+          stream.getTracks().forEach(track => track.stop());
+          document.body.removeChild(modal);
+        }
+      };
+
+      captureButton.onclick = capturePhoto;
+      cancelButton.onclick = () => {
+        if (isCapturing) return; // Prevent cancel during capture
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(modal);
+      };
+
+      // Auto-focus and show preview
+      video.onloadedmetadata = () => {
+        video.play();
+      };
+    } catch (error) {
+      console.error('Camera error:', error);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.error('Camera permission denied. Please allow camera access in your browser settings.');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        toast.error('No camera found on your device');
+      } else {
+        toast.error('Failed to access camera: ' + error.message);
+      }
     }
   };
 
@@ -260,10 +474,12 @@ const DeliveryRequest = () => {
 
     try {
       setDischarging(true);
-      const response = await parkingAPI.dischargeVehicle(selectedVehicles, {
+      const dischargeData = {
         verification_method: verificationMethod,
         discharge_image_url: dischargeImageUrl || '',
-      });
+        ...(isSuperAdmin && selectedCompanyId && { company_id: selectedCompanyId }),
+      };
+      const response = await parkingAPI.dischargeVehicle(selectedVehicles, dischargeData);
       if (response.success) {
         toast.success(`${response.data?.dischargedCount || selectedVehicles.length} vehicle(s) discharged successfully`);
         setSelectedVehicles([]);
@@ -315,6 +531,37 @@ const DeliveryRequest = () => {
               </div>
             </div>
           </div>
+
+          {/* Company Filter for Super Admin */}
+          {isSuperAdmin && (
+            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+              <label className="block text-sm font-bold text-gray-700 mb-3">
+                Filter by Company
+              </label>
+              {loadingCompanies ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                  <span className="ml-2 text-gray-600">Loading companies...</span>
+                </div>
+              ) : (
+                <select
+                  value={selectedCompanyId}
+                  onChange={(e) => {
+                    setSelectedCompanyId(e.target.value);
+                    loadVehicles();
+                  }}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 outline-none"
+                >
+                  <option value="">All Companies</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           {/* Filters Card */}
           <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100 animate-fade-in" style={{ animationDelay: '100ms' }}>
@@ -590,14 +837,23 @@ const DeliveryRequest = () => {
                       className="hidden"
                     />
                     <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                      {dischargeImageUrl ? '📁 Change Image' : '📁 Choose File'}
+                      {uploadingDischargeImage ? 'Uploading...' : (dischargeImageUrl ? '📁 Change Image' : '📁 Upload from Files')}
                     </div>
                   </label>
+                  <button
+                    type="button"
+                    onClick={captureDischargeImageFromCamera}
+                    disabled={uploadingDischargeImage}
+                    className="flex-1 px-4 py-3 bg-blue-100 hover:bg-blue-200 rounded-xl transition-colors text-center font-semibold text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {uploadingDischargeImage ? 'Uploading...' : '📷 Capture from Camera'}
+                  </button>
                   {dischargeImageUrl && (
                     <button
                       type="button"
                       onClick={() => setDischargeImageUrl('')}
-                      className="px-4 py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl transition-colors font-semibold"
+                      disabled={uploadingDischargeImage}
+                      className="px-4 py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Remove
                     </button>

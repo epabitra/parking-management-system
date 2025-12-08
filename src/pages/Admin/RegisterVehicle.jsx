@@ -3,7 +3,7 @@
  * Modern, professional form with smooth animations
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { parkingAPI } from '@/services/parkingApi';
@@ -12,9 +12,11 @@ import { ROUTES, OTP_PURPOSE, SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/config/
 import { toast } from 'react-toastify';
 import { Helmet } from 'react-helmet-async';
 import Loading from '@/components/Loading';
+import { useAuth } from '@/context/AuthContext';
 
 const RegisterVehicle = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
@@ -27,6 +29,9 @@ const RegisterVehicle = () => {
   const [bulkMode, setBulkMode] = useState(false);
   const [vehicleNumbers, setVehicleNumbers] = useState(['']);
   const [bulkImageMode, setBulkImageMode] = useState('single'); // 'single' or 'multiple'
+  const [companies, setCompanies] = useState([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+  const isSuperAdmin = user?.is_super_admin || false;
 
   const {
     register,
@@ -36,6 +41,28 @@ const RegisterVehicle = () => {
   } = useForm();
 
   const mobileNumber = watch('mobile_number');
+  const selectedCompanyId = watch('company_id');
+
+  // Load companies for super admin
+  useEffect(() => {
+    if (isSuperAdmin) {
+      loadCompanies();
+    }
+  }, [isSuperAdmin]);
+
+  const loadCompanies = async () => {
+    try {
+      setLoadingCompanies(true);
+      const response = await parkingAPI.listCompanies();
+      if (response.success) {
+        setCompanies(response.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load companies:', error);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
 
   // Camera capture function for desktop/tablets
   const captureFromCamera = async (index = null) => {
@@ -356,6 +383,7 @@ const RegisterVehicle = () => {
           vehicle_image_urls: vehicleImageUrls,
           vehicle_image_url: vehicleImageUrl,
           status: 'parked',
+          ...(isSuperAdmin && selectedCompanyId && { company_id: selectedCompanyId }),
         };
 
         const response = await parkingAPI.registerVehicle(vehicleData);
@@ -374,6 +402,7 @@ const RegisterVehicle = () => {
           address: data.address || '',
           vehicle_image_url: imageUrl || '',
           status: 'parked',
+          ...(isSuperAdmin && selectedCompanyId && { company_id: selectedCompanyId }),
         };
 
         const response = await parkingAPI.registerVehicle(vehicleData);
@@ -416,6 +445,36 @@ const RegisterVehicle = () => {
           {/* Form Card */}
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              {/* Company Selection for Super Admin */}
+              {isSuperAdmin && (
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-5 border-2 border-purple-100">
+                  <label className="block text-sm font-bold text-gray-700 mb-3">
+                    Select Company <span className="text-red-500">*</span>
+                  </label>
+                  {loadingCompanies ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                      <span className="ml-2 text-gray-600">Loading companies...</span>
+                    </div>
+                  ) : (
+                    <select
+                      {...register('company_id', { required: isSuperAdmin ? 'Company selection is required' : false })}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 outline-none"
+                    >
+                      <option value="">-- Select Company --</option>
+                      {companies.map((company) => (
+                        <option key={company.id} value={company.id}>
+                          {company.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {errors.company_id && (
+                    <p className="mt-2 text-sm text-red-600">{errors.company_id.message}</p>
+                  )}
+                </div>
+              )}
+
               {/* Bulk Mode Toggle */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-5 border-2 border-blue-100">
                 <label className="flex items-center cursor-pointer">

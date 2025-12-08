@@ -74,6 +74,13 @@ const EmployeeManagement = () => {
         is_active: data.is_active !== undefined ? data.is_active : true,
       };
       
+      // Add company_id - super admin can specify, regular admin uses their own company
+      if (user?.is_super_admin && data.company_id) {
+        employeeData.company_id = data.company_id;
+      } else if (user?.company_id) {
+        employeeData.company_id = user.company_id;
+      }
+      
       // Only include password if provided (for new employees, default is Test@123; for updates, it's optional)
       if (data.password && data.password.trim() !== '') {
         employeeData.password = data.password;
@@ -184,6 +191,11 @@ const EmployeeManagement = () => {
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">Employee Management</h1>
                   <p className="text-gray-600 mt-1">Manage your team members</p>
+                  {user?.company && (
+                    <p className="text-blue-600 text-sm mt-1 font-semibold">
+                      🏢 Company: {user.company.name}
+                    </p>
+                  )}
                 </div>
               </div>
               <button

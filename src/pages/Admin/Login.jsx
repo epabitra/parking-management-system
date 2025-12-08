@@ -4,12 +4,13 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/context/AuthContext';
 import { isValidEmail } from '@/utils/validation';
 import { ROUTES } from '@/config/constants';
 import { Helmet } from 'react-helmet-async';
+import { toast } from 'react-toastify';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -177,6 +178,30 @@ const AdminLogin = () => {
                   )}
                 </button>
               </form>
+
+              {/* Navigation Links */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="flex flex-col gap-3">
+                  <Link
+                    to={ROUTES.HOME}
+                    className="text-center text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200 flex items-center justify-center"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    Go to Home Page
+                  </Link>
+                  <Link
+                    to={ROUTES.REGISTER_COMPANY}
+                    className="text-center text-indigo-600 hover:text-indigo-700 font-medium transition-colors duration-200 flex items-center justify-center"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Register Your Company
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
 

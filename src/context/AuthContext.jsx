@@ -119,11 +119,15 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setIsAuthenticated(false);
       toast.success('Logged out successfully');
+      // Redirect to home page after logout
+      window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
       // Clear local state even if API call fails
       setUser(null);
       setIsAuthenticated(false);
+      // Redirect to home page even on error
+      window.location.href = '/';
     } finally {
       setIsLoading(false);
     }

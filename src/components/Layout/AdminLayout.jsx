@@ -31,7 +31,7 @@ const AdminLayout = ({ children }) => {
 
   const handleLogout = async () => {
     await logout();
-    navigate(ROUTES.ADMIN_LOGIN);
+    // Logout function in AuthContext will handle redirect to home page
   };
 
   const isActive = (path) => {
@@ -90,12 +90,27 @@ const AdminLayout = ({ children }) => {
       ),
       roles: [EMPLOYEE_ROLES.ADMIN], // Only admins
     },
+    {
+      path: ROUTES.ADMIN_COMPANIES,
+      label: 'Companies',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+      ),
+      roles: [EMPLOYEE_ROLES.ADMIN], // Only admins (but will check is_super_admin in component)
+      superAdminOnly: true, // Only show for super admin
+    },
   ];
   
-  // Filter menu items based on user role
-  const menuItems = allMenuItems.filter(item => 
-    item.roles.includes(user?.role || EMPLOYEE_ROLES.EMPLOYEE)
-  );
+  // Filter menu items based on user role and super admin status
+  const menuItems = allMenuItems.filter(item => {
+    const hasRole = item.roles.includes(user?.role || EMPLOYEE_ROLES.EMPLOYEE);
+    if (item.superAdminOnly) {
+      return hasRole && user?.is_super_admin === true;
+    }
+    return hasRole;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -144,14 +159,18 @@ const AdminLayout = ({ children }) => {
       >
         {/* Sidebar Header */}
         <div className="p-6 border-b border-gray-700/50">
-          <div className="flex items-center justify-between">
-            <div className={`flex items-center space-x-3 transition-all duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 lg:opacity-0'}`}>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+          <div className="flex items-center justify-between gap-2">
+            <div className={`flex items-center space-x-3 transition-all duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 lg:opacity-0'} min-w-0 flex-1`}>
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
                 <span className="text-2xl">🅿️</span>
               </div>
-              <div>
-                <h2 className="text-white font-bold text-lg">Parking</h2>
-                <p className="text-gray-400 text-xs">Management</p>
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <h2 
+                  className="text-white font-bold text-lg truncate whitespace-nowrap" 
+                  title={user?.company_info?.name || user?.company?.name || (user?.is_super_admin ? 'Super Admin' : 'Parking Management')}
+                >
+                  {user?.company_info?.name || user?.company?.name || (user?.is_super_admin ? 'Super Admin' : 'Parking Management')}
+                </h2>
               </div>
             </div>
             <button
@@ -214,6 +233,14 @@ const AdminLayout = ({ children }) => {
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-semibold text-sm truncate">{user.name || 'Admin'}</p>
                   <p className="text-gray-400 text-xs truncate">{user.email}</p>
+                  {user.company && (
+                    <p className="text-blue-400 text-xs truncate mt-1" title={user.company.name}>
+                      🏢 {user.company.name}
+                    </p>
+                  )}
+                  {user.is_super_admin && (
+                    <p className="text-yellow-400 text-xs mt-1">⭐ Super Admin</p>
+                  )}
                 </div>
               </div>
             </div>

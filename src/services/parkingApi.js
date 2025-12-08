@@ -297,6 +297,28 @@ export const parkingAPI = {
   },
 
   /**
+   * Get Customer History by Mobile Number
+   */
+  getCustomerHistory: async (mobileNumber) => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      return apiClient.get('', {
+        params: {
+          action: API_ACTIONS.GET_CUSTOMER_HISTORY,
+          token: token,
+          mobile_number: mobileNumber,
+        },
+      });
+    } catch (error) {
+      console.error('Get customer history error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Get Vehicle
    */
   getVehicle: async (id) => {
@@ -546,14 +568,24 @@ export const parkingAPI = {
         throw new Error('Authentication required');
       }
 
+      // Use fetch with mode: 'no-cors' workaround for Google Apps Script CORS issues
+      // Or use the standard axios call - Google Apps Script should handle CORS when deployed correctly
       return apiClient.get('', {
         params: {
           action: API_ACTIONS.LIST_EMPLOYEES,
           token,
         },
+        // Add these to help with CORS
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
       });
     } catch (error) {
       console.error('List employees error:', error);
+      // Provide helpful error message for CORS issues
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('CORS') || error.message?.includes('Access-Control')) {
+        throw new Error('CORS Error: Please verify Google Apps Script deployment settings:\n1. Deploy as Web App\n2. Set "Who has access" to "Anyone"\n3. Redeploy after making changes\n4. Check the Web App URL is correct');
+      }
       throw error;
     }
   },
@@ -697,6 +729,173 @@ export const parkingAPI = {
       return response;
     } catch (error) {
       console.error('Change password error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Register Company (Public - no auth required)
+   * Creates company and admin employee automatically
+   */
+  registerCompany: async (companyData) => {
+    try {
+      const params = new URLSearchParams();
+      params.append('action', API_ACTIONS.REGISTER_COMPANY);
+      
+      Object.keys(companyData).forEach(key => {
+        const value = companyData[key];
+        if (value !== null && value !== undefined) {
+          params.append(key, String(value));
+        }
+      });
+      
+      const response = await apiClient.post('', params.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      return response;
+    } catch (error) {
+      console.error('Register company error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create Company (Super Admin only)
+   */
+  createCompany: async (companyData) => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const params = new URLSearchParams();
+      params.append('action', API_ACTIONS.CREATE_COMPANY);
+      params.append('token', token);
+      
+      Object.keys(companyData).forEach(key => {
+        const value = companyData[key];
+        if (value !== null && value !== undefined) {
+          params.append(key, String(value));
+        }
+      });
+      
+      const response = await apiClient.post('', params.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      return response;
+    } catch (error) {
+      console.error('Create company error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * List Companies (Super Admin only)
+   */
+  listCompanies: async () => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      return apiClient.get('', {
+        params: {
+          action: API_ACTIONS.LIST_COMPANIES,
+          token,
+        },
+      });
+    } catch (error) {
+      console.error('List companies error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get Company (Super Admin only)
+   */
+  getCompany: async (id) => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      return apiClient.get('', {
+        params: {
+          action: API_ACTIONS.GET_COMPANY,
+          token,
+          id,
+        },
+      });
+    } catch (error) {
+      console.error('Get company error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update Company (Super Admin only)
+   */
+  updateCompany: async (id, companyData) => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const params = new URLSearchParams();
+      params.append('action', API_ACTIONS.UPDATE_COMPANY);
+      params.append('token', token);
+      params.append('id', id);
+      
+      Object.keys(companyData).forEach(key => {
+        const value = companyData[key];
+        if (value !== null && value !== undefined) {
+          params.append(key, String(value));
+        }
+      });
+      
+      const response = await apiClient.post('', params.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      return response;
+    } catch (error) {
+      console.error('Update company error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete Company (Super Admin only)
+   */
+  deleteCompany: async (id) => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const params = new URLSearchParams();
+      params.append('action', API_ACTIONS.DELETE_COMPANY);
+      params.append('token', token);
+      params.append('id', id);
+      
+      const response = await apiClient.post('', params.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      return response;
+    } catch (error) {
+      console.error('Delete company error:', error);
       throw error;
     }
   },

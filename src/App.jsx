@@ -27,7 +27,10 @@ import VehicleList from '@/pages/Admin/VehicleList';
 import EditVehicle from '@/pages/Admin/EditVehicle';
 import DeliveryRequest from '@/pages/Admin/DeliveryRequest';
 import EmployeeManagement from '@/pages/Admin/EmployeeManagement';
+import CompanyManagement from '@/pages/Admin/CompanyManagement';
 import ChangePassword from '@/pages/Admin/ChangePassword';
+import RegisterCompany from '@/pages/RegisterCompany';
+import Home from '@/pages/Home';
 
 function App() {
   return (
@@ -38,6 +41,10 @@ function App() {
             <BrowserRouter basename={import.meta.env.BASE_URL || ''} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <ScrollToTop />
             <Routes>
+              {/* Public Routes */}
+              <Route path={ROUTES.HOME} element={<Home />} />
+              <Route path={ROUTES.REGISTER_COMPANY} element={<RegisterCompany />} />
+              
               {/* Admin Routes */}
               <Route path={ROUTES.ADMIN_LOGIN} element={<AdminLogin />} />
               
@@ -104,6 +111,16 @@ function App() {
                 }
               />
               <Route
+                path={ROUTES.ADMIN_COMPANIES}
+                element={
+                  <ProtectedRoute>
+                    <AdminLayout>
+                      <CompanyManagement />
+                    </AdminLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path={ROUTES.ADMIN_CHANGE_PASSWORD}
                 element={
                   <ProtectedRoute>
@@ -114,9 +131,8 @@ function App() {
                 }
               />
 
-              {/* Default redirect to login */}
-              <Route path="/" element={<Navigate to={ROUTES.ADMIN_LOGIN} replace />} />
-              <Route path="*" element={<Navigate to={ROUTES.ADMIN_LOGIN} replace />} />
+              {/* Default redirect to home */}
+              <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
             </Routes>
 
             {/* Toast notifications */}

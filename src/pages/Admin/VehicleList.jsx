@@ -40,43 +40,149 @@ const VehicleList = () => {
     total: 0,
     totalPages: 0,
   });
-  const userTimezone = getUserTimezone(user);
+  const [companies, setCompanies] = useState([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [customerHistory, setCustomerHistory] = useState(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  
+  // Safety checks for user
+  if (!user) {
+    return <Loading />;
+  }
+  
+  const isSuperAdmin = user?.is_super_admin || false;
+  const userTimezone = getUserTimezone(user) || 'UTC';
+
+  const loadCompanies = useCallback(async () => {
+    try {
+      setLoadingCompanies(true);
+      const response = await parkingAPI.listCompanies();
+      if (response.success) {
+        setCompanies(response.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load companies:', error);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  }, []);
+
+  // Load companies for super admin
+  useEffect(() => {
+    if (isSuperAdmin) {
+      loadCompanies();
+    }
+  }, [isSuperAdmin, loadCompanies]);
 
   // Auto-filter only for status, dates, and sort (not for text inputs)
   // Reset to page 1 when filters change
   useEffect(() => {
     setPagination(prev => ({ ...prev, page: 1 }));
-  }, [filters.status, filters.from_date, filters.to_date, sortBy]);
+  }, [filters.status, filters.from_date, filters.to_date, sortBy, selectedCompanyId]);
   
-  // Reload when filters, sort, or pagination changes
+  // Reload when filters, sort, pagination, or company selection changes
   useEffect(() => {
-    loadVehicles();
-  }, [loadVehicles]);
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const params = { 
+          ...filters, 
+          timezone: userTimezone,
+          page: pagination.page,
+          limit: pagination.pageSize,
+          sort_by: sortBy,
+          ...(isSuperAdmin && selectedCompanyId && { company_id: selectedCompanyId }),
+        };
+        if (!params.status) delete params.status;
+        if (!params.vehicle_number) delete params.vehicle_number;
+        if (!params.mobile_number) delete params.mobile_number;
+        if (!params.name) delete params.name;
+        if (!params.from_date) delete params.from_date;
+        if (!params.to_date) delete params.to_date;
+        if (!params.timezone) delete params.timezone;
+        if (!params.company_id) delete params.company_id;
 
-  const applyFilters = () => {
-    // Apply input filters to actual filters
-    const newFilters = {
-      ...filters,
-      vehicle_number: inputFilters.vehicle_number,
-      mobile_number: inputFilters.mobile_number,
-      name: inputFilters.name,
+        const response = await parkingAPI.listVehicles(params);
+        if (response.success) {
+          const data = response.data || [];
+          setVehicles(data);
+          setPagination(prev => ({
+            ...prev,
+            total: response.total || 0,
+            totalPages: response.totalPages || 0,
+          }));
+        }
+      } catch (error) {
+        toast.error(error.message || 'Failed to load vehicles');
+      } finally {
+        setLoading(false);
+      }
     };
-    setFilters(newFilters);
-    // Reset to page 1 when filters change
-    setPagination(prev => ({ ...prev, page: 1 }));
-    // Trigger load immediately with new filters
-    loadVehiclesWithFilters(newFilters);
+    
+    loadData();
+  }, [filters, pagination.page, pagination.pageSize, sortBy, userTimezone, isSuperAdmin, selectedCompanyId]);
+
+  const applyFilters = async () => {
+    try {
+      // Apply input filters to actual filters
+      const newFilters = {
+        ...filters,
+        vehicle_number: inputFilters.vehicle_number,
+        mobile_number: inputFilters.mobile_number,
+        name: inputFilters.name,
+      };
+      setFilters(newFilters);
+      // Reset to page 1 when filters change
+      setPagination(prev => ({ ...prev, page: 1 }));
+      
+      // If mobile number filter is applied, load customer history
+      if (newFilters.mobile_number && newFilters.mobile_number.trim() !== '') {
+        try {
+          await loadCustomerHistory(newFilters.mobile_number.trim());
+        } catch (error) {
+          console.error('Failed to load customer history:', error);
+          // Don't block the main vehicle loading if history fails
+        }
+      } else {
+        setCustomerHistory(null);
+      }
+      
+      // Trigger load immediately with new filters
+      await loadVehiclesWithFilters(newFilters);
+    } catch (error) {
+      console.error('Error applying filters:', error);
+      toast.error('Failed to apply filters');
+    }
   };
 
-  const loadVehiclesWithFilters = useCallback(async (filterParams = filters) => {
+  const loadCustomerHistory = async (mobileNumber) => {
+    try {
+      setLoadingHistory(true);
+      const response = await parkingAPI.getCustomerHistory(mobileNumber);
+      if (response.success) {
+        setCustomerHistory(response);
+      }
+    } catch (error) {
+      console.error('Failed to load customer history:', error);
+      setCustomerHistory(null);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const loadVehiclesWithFilters = useCallback(async (filterParams) => {
     try {
       setLoading(true);
+      // Use provided filterParams or fallback to current filters state
+      const activeFilters = filterParams || filters;
       const params = { 
-        ...filterParams, 
+        ...activeFilters, 
         timezone: userTimezone,
         page: pagination.page,
         limit: pagination.pageSize,
         sort_by: sortBy,
+        ...(isSuperAdmin && selectedCompanyId && { company_id: selectedCompanyId }),
       };
       if (!params.status) delete params.status;
       if (!params.vehicle_number) delete params.vehicle_number;
@@ -85,6 +191,7 @@ const VehicleList = () => {
       if (!params.from_date) delete params.from_date;
       if (!params.to_date) delete params.to_date;
       if (!params.timezone) delete params.timezone;
+      if (!params.company_id) delete params.company_id;
 
       const response = await parkingAPI.listVehicles(params);
       if (response.success) {
@@ -103,7 +210,7 @@ const VehicleList = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.page, pagination.pageSize, sortBy, userTimezone]);
+  }, [filters, pagination.page, pagination.pageSize, sortBy, userTimezone, isSuperAdmin, selectedCompanyId]);
 
   const loadVehicles = useCallback(async () => {
     await loadVehiclesWithFilters(filters);
@@ -315,6 +422,7 @@ const VehicleList = () => {
                   setFilters({ status: '', vehicle_number: '', mobile_number: '', name: '', from_date: '', to_date: '' });
                   setInputFilters({ vehicle_number: '', mobile_number: '', name: '' });
                   setPagination(prev => ({ ...prev, page: 1 }));
+                  setCustomerHistory(null);
                 }}
                 className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-all duration-200 font-semibold"
               >
@@ -322,6 +430,83 @@ const VehicleList = () => {
               </button>
             </div>
           </div>
+
+          {/* Customer History Card - Show when mobile number filter is applied */}
+          {customerHistory && filters.mobile_number && (
+            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100 animate-fade-in">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">Customer Parking History</h2>
+                    <p className="text-gray-600">Mobile: {filters.mobile_number}</p>
+                  </div>
+                </div>
+                {loadingHistory && (
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                )}
+              </div>
+
+              {/* Summary Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border-2 border-blue-200">
+                  <div className="text-sm font-semibold text-blue-700 mb-1">Total Parkings</div>
+                  <div className="text-3xl font-bold text-blue-900">{customerHistory.summary?.total_parkings || 0}</div>
+                </div>
+                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border-2 border-green-200">
+                  <div className="text-sm font-semibold text-green-700 mb-1">Discharged</div>
+                  <div className="text-3xl font-bold text-green-900">{customerHistory.summary?.total_discharged || 0}</div>
+                </div>
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border-2 border-orange-200">
+                  <div className="text-sm font-semibold text-orange-700 mb-1">Currently Parked</div>
+                  <div className="text-3xl font-bold text-orange-900">{customerHistory.summary?.total_parked || 0}</div>
+                </div>
+              </div>
+
+              {/* Company-wise breakdown for Super Admin */}
+              {isSuperAdmin && customerHistory.companies && customerHistory.companies.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Company-wise Breakdown</h3>
+                  <div className="space-y-3">
+                    {customerHistory.companies.map((company) => (
+                      <div key={company.company_id} className="bg-gray-50 rounded-xl p-4 border-2 border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-bold text-gray-900">{company.company_name}</h4>
+                          <span className="text-sm text-gray-600">Company ID: {company.company_id}</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 mt-3">
+                          <div>
+                            <div className="text-xs text-gray-600 mb-1">Total Parkings</div>
+                            <div className="text-lg font-bold text-blue-600">{company.total_parkings}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-600 mb-1">Discharged</div>
+                            <div className="text-lg font-bold text-green-600">{company.total_discharged}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-600 mb-1">Parked</div>
+                            <div className="text-lg font-bold text-orange-600">{company.total_parked}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* All Vehicles for this customer */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4">All Vehicle Records ({customerHistory.data?.length || 0})</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Showing all parking records for this mobile number. Use the filters below to refine the list.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Vehicle Table Card */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 animate-fade-in" style={{ animationDelay: '200ms' }}>

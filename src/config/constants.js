@@ -18,6 +18,7 @@ export const STORAGE_KEYS = {
 };
 
 export const ROUTES = {
+  HOME: '/',
   ADMIN_LOGIN: '/admin/login',
   ADMIN_DASHBOARD: '/admin/dashboard',
   ADMIN_REGISTER: '/admin/register',
@@ -25,7 +26,9 @@ export const ROUTES = {
   ADMIN_VEHICLE_EDIT: '/admin/vehicles/:id/edit',
   ADMIN_DELIVERY: '/admin/delivery',
   ADMIN_EMPLOYEES: '/admin/employees',
+  ADMIN_COMPANIES: '/admin/companies',
   ADMIN_CHANGE_PASSWORD: '/admin/change-password',
+  REGISTER_COMPANY: '/register-company',
 };
 
 export const API_ACTIONS = {
@@ -39,6 +42,7 @@ export const API_ACTIONS = {
   UPDATE_VEHICLE: 'updateVehicle',
   LIST_VEHICLES: 'listVehicles',
   GET_VEHICLE: 'getVehicle',
+  GET_CUSTOMER_HISTORY: 'getCustomerHistory',
   
   // OTP
   SEND_OTP: 'sendOTP',
@@ -51,6 +55,14 @@ export const API_ACTIONS = {
   LIST_EMPLOYEES: 'listEmployees',
   GET_EMPLOYEE: 'getEmployee',
   CHANGE_PASSWORD: 'changePassword',
+  
+  // Companies
+  REGISTER_COMPANY: 'registerCompany',
+  CREATE_COMPANY: 'createCompany',
+  UPDATE_COMPANY: 'updateCompany',
+  DELETE_COMPANY: 'deleteCompany',
+  LIST_COMPANIES: 'listCompanies',
+  GET_COMPANY: 'getCompany',
   
   // Dashboard
   GET_DASHBOARD_STATS: 'getDashboardStats',
