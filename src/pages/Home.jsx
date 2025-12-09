@@ -205,7 +205,7 @@ const Home = () => {
               <div className="flex flex-col items-center text-center">
                 <div className="w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 rounded-full overflow-hidden shadow-xl mb-4 border-4 border-blue-200 hover:border-blue-400 transition-all duration-300">
                   <img 
-                    src="https://i.postimg.cc/3xKFndfk/pabitra.png" 
+                    src="https://i.postimg.cc/MKLNCNX6/Profile-picture.jpg" 
                     alt="Developer" 
                     className="w-full h-full object-cover"
                   />
