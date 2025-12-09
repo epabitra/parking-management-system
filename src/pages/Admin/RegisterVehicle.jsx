@@ -738,26 +738,46 @@ const RegisterVehicle = () => {
               </div>
 
               {/* Validation Method */}
-              <div className="border-t-2 border-gray-100 pt-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+              <div className="border-t-2 border-gray-100 pt-6 space-y-4">
+                <h3 className="text-lg font-bold text-gray-800 flex items-center">
                   <span className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full mr-3"></span>
                   Validation Method
                 </h3>
-                
-                <div className="space-y-4">
-                  {/* OTP Validation */}
-                  <div className={`border-2 rounded-xl p-5 transition-all duration-200 ${verificationMethod === 'otp' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="flex items-center cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={verificationMethod === 'otp'}
-                          onChange={() => setVerificationMethod('otp')}
-                          className="w-5 h-5 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="ml-3 font-semibold text-gray-800">OTP Verification</span>
-                      </label>
-                      {otpVerified && verificationMethod === 'otp' && (
+
+                {/* Compact selector */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { key: 'otp', label: 'OTP Verification', desc: 'Send & verify OTP', color: 'from-blue-500 to-indigo-600' },
+                    { key: 'image', label: 'Image Validation', desc: 'Upload depositor photo', color: 'from-green-500 to-emerald-600' },
+                    { key: 'none', label: 'No Verification', desc: 'Quick register, no proof', color: 'from-gray-500 to-slate-600' },
+                  ].map(option => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => setVerificationMethod(option.key)}
+                      className={`text-left p-4 rounded-xl border-2 transition-all duration-200 bg-white shadow-sm hover:shadow-md ${
+                        verificationMethod === option.key ? 'border-blue-500 shadow-lg' : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-gray-900">{option.label}</p>
+                          <p className="text-sm text-gray-600">{option.desc}</p>
+                        </div>
+                        <span className={`w-9 h-9 rounded-full bg-gradient-to-br ${option.color} text-white flex items-center justify-center font-bold`}>
+                          {verificationMethod === option.key ? '✓' : ''}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Render only the selected method details */}
+                {verificationMethod === 'otp' && (
+                  <div className="border-2 rounded-xl p-5 border-blue-200 bg-blue-50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-gray-800">OTP Verification</div>
+                      {otpVerified && (
                         <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold flex items-center">
                           <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -766,8 +786,8 @@ const RegisterVehicle = () => {
                         </span>
                       )}
                     </div>
-                    
-                    {verificationMethod === 'otp' && !otpVerified && (
+
+                    {!otpVerified && (
                       <div className="space-y-3">
                         <button
                           type="button"
@@ -777,7 +797,7 @@ const RegisterVehicle = () => {
                         >
                           {otpSent ? 'OTP Sent ✓' : 'Send OTP'}
                         </button>
-                        
+
                         {otpSent && (
                           <div className="space-y-3 animate-fade-in">
                             <input
@@ -801,20 +821,13 @@ const RegisterVehicle = () => {
                       </div>
                     )}
                   </div>
+                )}
 
-                  {/* Image Validation */}
-                  <div className={`border-2 rounded-xl p-5 transition-all duration-200 ${verificationMethod === 'image' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="flex items-center cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={verificationMethod === 'image'}
-                          onChange={() => setVerificationMethod('image')}
-                          className="w-5 h-5 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="ml-3 font-semibold text-gray-800">Image Validation</span>
-                      </label>
-                      {verificationMethod === 'image' && imageUrl && (
+                {verificationMethod === 'image' && (
+                  <div className="border-2 rounded-xl p-5 border-blue-200 bg-blue-50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-gray-800">Image Validation</div>
+                      {imageUrl && (
                         <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold flex items-center">
                           <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -823,195 +836,182 @@ const RegisterVehicle = () => {
                         </span>
                       )}
                     </div>
-                    
-                    {verificationMethod === 'image' && (
-                      <div className="space-y-3">
-                        {bulkMode ? (
-                        <div className="space-y-4">
-                          {/* Image Mode Selection for Bulk */}
-                          <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
-                            <label className="block text-sm font-bold text-gray-700 mb-3">Image Upload Mode:</label>
-                            <div className="flex gap-4">
-                              <label className="flex items-center cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="bulkImageMode"
-                                  value="single"
-                                  checked={bulkImageMode === 'single'}
-                                  onChange={(e) => {
-                                    setBulkImageMode(e.target.value);
-                                    // Clear multiple images if switching to single
-                                    if (e.target.value === 'single') {
-                                      setImageUrls([]);
-                                    }
-                                  }}
-                                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="ml-2 text-sm font-medium text-gray-700">One Image for All Vehicles</span>
-                              </label>
-                              <label className="flex items-center cursor-pointer">
-                                <input
-                                  type="radio"
-                                  name="bulkImageMode"
-                                  value="multiple"
-                                  checked={bulkImageMode === 'multiple'}
-                                  onChange={(e) => {
-                                    setBulkImageMode(e.target.value);
-                                    // Initialize imageUrls array if switching to multiple
-                                    if (e.target.value === 'multiple' && imageUrls.length === 0) {
-                                      setImageUrls(new Array(vehicleNumbers.length).fill(''));
-                                    }
-                                  }}
-                                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="ml-2 text-sm font-medium text-gray-700">Multiple Images (One per Vehicle)</span>
-                              </label>
-                            </div>
-                          </div>
 
-                          {/* Single Image Mode */}
-                          {bulkImageMode === 'single' ? (
-                            <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-blue-400 transition-colors">
-                              <p className="text-sm font-medium text-gray-700 mb-3">Upload One Image for All Vehicles:</p>
-                              <div className="flex gap-2 mb-3">
-                                <label className="flex-1">
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleImageUpload}
-                                    disabled={uploadingImage}
-                                    className="hidden"
-                                  />
-                                  <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
-                                    📁 Choose File
-                                  </div>
-                                </label>
-                                <button
-                                  type="button"
-                                  onClick={() => captureFromCamera()}
-                                  disabled={uploadingImage}
-                                  className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer transition-colors text-center font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  📷 Use Camera
-                                </button>
-                              </div>
-                              {imageUrl && (
-                                <img src={imageUrl} alt="Vehicle Depositor" className="w-full h-40 object-cover rounded-xl mt-3 border-2 border-gray-200" />
-                              )}
-                              {uploadingImage && (
-                                <div className="text-center py-4">
-                                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                                  <p className="text-sm text-gray-600 mt-2">Uploading...</p>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            /* Multiple Images Mode */
-                            <div className="space-y-4">
-                              {vehicleNumbers.map((vn, index) => (
-                                <div key={index} className="border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-blue-400 transition-colors">
-                                  <p className="text-sm font-medium text-gray-700 mb-3">Vehicle {index + 1}: <span className="font-bold">{vn || 'Not entered'}</span></p>
-                                  <div className="flex gap-2 mb-3">
-                                    <label className="flex-1">
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => handleImageUpload(e, index)}
-                                        disabled={uploadingImage}
-                                        className="hidden"
-                                      />
-                                      <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
-                                        📁 Choose File
-                                      </div>
-                                    </label>
-                                    <button
-                                      type="button"
-                                      onClick={() => captureFromCamera(index)}
-                                      disabled={uploadingImage}
-                                      className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer transition-colors text-center font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      📷 Use Camera
-                                    </button>
-                                  </div>
-                                  {imageUrls[index] && (
-                                    <img src={imageUrls[index]} alt={`Vehicle ${index + 1}`} className="w-full h-40 object-cover rounded-xl mt-3 border-2 border-gray-200" />
-                                  )}
-                                </div>
-                              ))}
-                              {uploadingImage && (
-                                <div className="text-center py-4">
-                                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                                  <p className="text-sm text-gray-600 mt-2">Uploading...</p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex gap-2 mb-3">
-                            <label className="flex-1">
+                    {bulkMode ? (
+                      <div className="space-y-4">
+                        {/* Image Mode Selection for Bulk */}
+                        <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
+                          <label className="block text-sm font-bold text-gray-700 mb-3">Image Upload Mode:</label>
+                          <div className="flex gap-4">
+                            <label className="flex items-center cursor-pointer">
                               <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                                disabled={uploadingImage}
-                                className="hidden"
+                                type="radio"
+                                name="bulkImageMode"
+                                value="single"
+                                checked={bulkImageMode === 'single'}
+                                onChange={(e) => {
+                                  setBulkImageMode(e.target.value);
+                                  // Clear multiple images if switching to single
+                                  if (e.target.value === 'single') {
+                                    setImageUrls([]);
+                                  }
+                                }}
+                                className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                               />
-                              <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
-                                📁 Choose File
-                              </div>
+                              <span className="ml-2 text-sm font-medium text-gray-700">One Image for All Vehicles</span>
                             </label>
-                            <button
-                              type="button"
-                              onClick={() => captureFromCamera()}
-                              disabled={uploadingImage}
-                              className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer transition-colors text-center font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              📷 Use Camera
-                            </button>
+                            <label className="flex items-center cursor-pointer">
+                              <input
+                                type="radio"
+                                name="bulkImageMode"
+                                value="multiple"
+                                checked={bulkImageMode === 'multiple'}
+                                onChange={(e) => {
+                                  setBulkImageMode(e.target.value);
+                                  // Initialize imageUrls array if switching to multiple
+                                  if (e.target.value === 'multiple' && imageUrls.length === 0) {
+                                    setImageUrls(new Array(vehicleNumbers.length).fill(''));
+                                  }
+                                }}
+                                className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                              />
+                              <span className="ml-2 text-sm font-medium text-gray-700">Multiple Images (One per Vehicle)</span>
+                            </label>
                           </div>
-                          {imageUrl && (
-                            <img src={imageUrl} alt="Vehicle" className="w-full h-64 object-cover rounded-xl border-2 border-gray-200" />
-                          )}
-                          {uploadingImage && (
-                            <div className="text-center py-4">
-                              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                              <p className="text-sm text-gray-600 mt-2">Uploading...</p>
+                        </div>
+
+                        {/* Single Image Mode */}
+                        {bulkImageMode === 'single' ? (
+                          <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-blue-400 transition-colors">
+                            <p className="text-sm font-medium text-gray-700 mb-3">Upload One Image for All Vehicles:</p>
+                            <div className="flex gap-2 mb-3">
+                              <label className="flex-1">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleImageUpload}
+                                  disabled={uploadingImage}
+                                  className="hidden"
+                                />
+                                <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
+                                  📁 Choose File
+                                </div>
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => captureFromCamera()}
+                                disabled={uploadingImage}
+                                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer transition-colors text-center font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                📷 Use Camera
+                              </button>
                             </div>
-                          )}
-                        </>
-                      )}
+                            {imageUrl && (
+                              <img src={imageUrl} alt="Vehicle Depositor" className="w-full h-40 object-cover rounded-xl mt-3 border-2 border-gray-200" />
+                            )}
+                            {uploadingImage && (
+                              <div className="text-center py-4">
+                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                <p className="text-sm text-gray-600 mt-2">Uploading...</p>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          /* Multiple Images Mode */
+                          <div className="space-y-4">
+                            {vehicleNumbers.map((vn, index) => (
+                              <div key={index} className="border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-blue-400 transition-colors">
+                                <p className="text-sm font-medium text-gray-700 mb-3">Vehicle {index + 1}: <span className="font-bold">{vn || 'Not entered'}</span></p>
+                                <div className="flex gap-2 mb-3">
+                                  <label className="flex-1">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => handleImageUpload(e, index)}
+                                      disabled={uploadingImage}
+                                      className="hidden"
+                                    />
+                                    <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
+                                      📁 Choose File
+                                    </div>
+                                  </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => captureFromCamera(index)}
+                                    disabled={uploadingImage}
+                                    className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer transition-colors text-center font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    📷 Use Camera
+                                  </button>
+                                </div>
+                                {imageUrls[index] && (
+                                  <img src={imageUrls[index]} alt={`Vehicle ${index + 1}`} className="w-full h-40 object-cover rounded-xl mt-3 border-2 border-gray-200" />
+                                )}
+                              </div>
+                            ))}
+                            {uploadingImage && (
+                              <div className="text-center py-4">
+                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                <p className="text-sm text-gray-600 mt-2">Uploading...</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
+                    ) : (
+                      <>
+                        <div className="flex gap-2 mb-3">
+                          <label className="flex-1">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageUpload}
+                              disabled={uploadingImage}
+                              className="hidden"
+                            />
+                            <div className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer transition-colors text-center font-semibold text-gray-700">
+                              📁 Choose File
+                            </div>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => captureFromCamera()}
+                            disabled={uploadingImage}
+                            className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer transition-colors text-center font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            📷 Use Camera
+                          </button>
+                        </div>
+                        {imageUrl && (
+                          <img src={imageUrl} alt="Vehicle" className="w-full h-64 object-cover rounded-xl border-2 border-gray-200" />
+                        )}
+                        {uploadingImage && (
+                          <div className="text-center py-4">
+                            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <p className="text-sm text-gray-600 mt-2">Uploading...</p>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
+                )}
 
-                  {/* No Verification Option */}
-                  <div className={`border-2 rounded-xl p-5 transition-all duration-200 ${verificationMethod === 'none' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
+                {verificationMethod === 'none' && (
+                  <div className="border-2 rounded-xl p-5 border-gray-200 bg-gray-50 space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="flex items-center cursor-pointer">
-                        <input
-                          type="radio"
-                          checked={verificationMethod === 'none'}
-                          onChange={() => setVerificationMethod('none')}
-                          className="w-5 h-5 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="ml-3 font-semibold text-gray-800">No Verification</span>
-                      </label>
-                      {verificationMethod === 'none' && (
-                        <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-semibold flex items-center">
-                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          Quick Register
-                        </span>
-                      )}
+                      <div className="font-semibold text-gray-800">No Verification</div>
+                      <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-semibold flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Quick Register
+                      </span>
                     </div>
-                    <p className="text-sm text-gray-600 mt-2 ml-8">
+                    <p className="text-sm text-gray-600">
                       Register vehicle without OTP or image verification. Just enter the information and submit.
                     </p>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Submit Buttons */}
