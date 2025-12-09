@@ -772,7 +772,6 @@ const RegisterVehicle = () => {
                                   <input
                                     type="file"
                                     accept="image/*"
-                                    capture="environment"
                                     onChange={handleImageUpload}
                                     disabled={uploadingImage}
                                     className="hidden"
@@ -811,7 +810,6 @@ const RegisterVehicle = () => {
                                       <input
                                         type="file"
                                         accept="image/*"
-                                        capture="environment"
                                         onChange={(e) => handleImageUpload(e, index)}
                                         disabled={uploadingImage}
                                         className="hidden"
@@ -850,7 +848,6 @@ const RegisterVehicle = () => {
                               <input
                                 type="file"
                                 accept="image/*"
-                                capture="environment"
                                 onChange={handleImageUpload}
                                 disabled={uploadingImage}
                                 className="hidden"

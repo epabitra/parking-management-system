@@ -831,7 +831,6 @@ const DeliveryRequest = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      capture="environment"
                       onChange={handleDischargeImageUpload}
                       disabled={uploadingDischargeImage}
                       className="hidden"
