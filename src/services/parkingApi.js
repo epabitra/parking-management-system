@@ -167,6 +167,32 @@ export const parkingAPI = {
   },
 
   /**
+   * Generate unique token number
+   */
+  generateTokenNumber: async () => {
+    try {
+      const token = tokenStorage.get();
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+      
+      const params = new URLSearchParams();
+      params.append('action', 'generateTokenNumber');
+      params.append('token', token);
+      
+      const response = await apiClient.post('', params.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      return response;
+    } catch (error) {
+      console.error('Generate token number error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Register Vehicle (supports bulk registration)
    */
   registerVehicle: async (vehicleData) => {

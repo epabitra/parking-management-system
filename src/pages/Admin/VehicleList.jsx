@@ -23,6 +23,7 @@ const VehicleList = () => {
     vehicle_number: '',
     mobile_number: '',
     name: '',
+    token_number: '',
     from_date: '',
     to_date: '',
   });
@@ -31,6 +32,7 @@ const VehicleList = () => {
     vehicle_number: '',
     mobile_number: '',
     name: '',
+    token_number: '',
   });
   const [sortBy, setSortBy] = useState('newest');
   const [imageModal, setImageModal] = useState({ isOpen: false, imageUrl: '', title: '' });
@@ -43,8 +45,10 @@ const VehicleList = () => {
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [dateErrors, setDateErrors] = useState({ from_date: '', to_date: '' });
   const [customerHistory, setCustomerHistory] = useState(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
   // Safety checks for user
   if (!user) {
@@ -72,8 +76,19 @@ const VehicleList = () => {
   useEffect(() => {
     if (isSuperAdmin) {
       loadCompanies();
+    } else {
+      // If not super admin, mark companies as loaded
+      setLoadingCompanies(false);
+      setInitialLoadComplete(true);
     }
-  }, [isSuperAdmin, loadCompanies]);
+  }, [isSuperAdmin]);
+
+  // Wait for companies to load, then mark initial load complete
+  useEffect(() => {
+    if (isSuperAdmin && !loadingCompanies && !initialLoadComplete) {
+      setInitialLoadComplete(true);
+    }
+  }, [isSuperAdmin, loadingCompanies, initialLoadComplete]);
 
   // Auto-filter only for status, dates, and sort (not for text inputs)
   // Reset to page 1 when filters change
@@ -83,7 +98,18 @@ const VehicleList = () => {
   
   // Reload when filters, sort, pagination, or company selection changes
   useEffect(() => {
+    // Don't load until initial setup is complete
+    if (!initialLoadComplete) {
+      return;
+    }
+    
     const loadData = async () => {
+      // Don't call backend if dates are incomplete
+      const dateValidation = validateDateFilters(filters.from_date, filters.to_date, false);
+      if (!dateValidation.valid) {
+        return; // Don't proceed if dates are invalid
+      }
+      
       try {
         setLoading(true);
         const params = { 
@@ -98,6 +124,7 @@ const VehicleList = () => {
         if (!params.vehicle_number) delete params.vehicle_number;
         if (!params.mobile_number) delete params.mobile_number;
         if (!params.name) delete params.name;
+        if (!params.token_number) delete params.token_number;
         if (!params.from_date) delete params.from_date;
         if (!params.to_date) delete params.to_date;
         if (!params.timezone) delete params.timezone;
@@ -121,16 +148,60 @@ const VehicleList = () => {
     };
     
     loadData();
-  }, [filters, pagination.page, pagination.pageSize, sortBy, userTimezone, isSuperAdmin, selectedCompanyId]);
+  }, [filters, pagination.page, pagination.pageSize, sortBy, userTimezone, isSuperAdmin, selectedCompanyId, initialLoadComplete]);
+
+  const validateDateFilters = (fromDate, toDate, showToast = false) => {
+    // If both dates are empty, that's fine
+    if (!fromDate && !toDate) {
+      setDateErrors({ from_date: '', to_date: '' });
+      return { valid: true };
+    }
+    
+    // If only one date is selected, show error
+    if (fromDate && !toDate) {
+      const error = 'Please select To Date as well';
+      setDateErrors({ from_date: '', to_date: error });
+      if (showToast) toast.error(error);
+      return { valid: false, message: error };
+    }
+    
+    if (!fromDate && toDate) {
+      const error = 'Please select From Date as well';
+      setDateErrors({ from_date: error, to_date: '' });
+      if (showToast) toast.error(error);
+      return { valid: false, message: error };
+    }
+    
+    // Both dates are selected, validate that to_date >= from_date
+    if (fromDate && toDate) {
+      if (toDate < fromDate) {
+        const error = 'To Date must be greater than or equal to From Date';
+        setDateErrors({ from_date: '', to_date: error });
+        if (showToast) toast.error(error);
+        return { valid: false, message: error };
+      }
+      // Both dates are valid
+      setDateErrors({ from_date: '', to_date: '' });
+    }
+    
+    return { valid: true };
+  };
 
   const applyFilters = async () => {
     try {
+      // Validate date filters (show toast on filter button click)
+      const dateValidation = validateDateFilters(filters.from_date, filters.to_date, true);
+      if (!dateValidation.valid) {
+        return; // Don't proceed if dates are invalid
+      }
+      
       // Apply input filters to actual filters
       const newFilters = {
         ...filters,
         vehicle_number: inputFilters.vehicle_number,
         mobile_number: inputFilters.mobile_number,
         name: inputFilters.name,
+        token_number: inputFilters.token_number,
       };
       setFilters(newFilters);
       // Reset to page 1 when filters change
@@ -239,8 +310,8 @@ const VehicleList = () => {
     setImageModal({ isOpen: false, imageUrl: '', title: '' });
   };
 
-  if (loading) {
-    return <Loading />;
+  if (loading || loadingCompanies || loadingHistory || !initialLoadComplete) {
+    return <Loading fullScreen />;
   }
 
   return (
@@ -349,6 +420,34 @@ const VehicleList = () => {
                 </div>
               </div>
               <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Token Number</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={inputFilters.token_number}
+                    onChange={(e) => setInputFilters({ ...inputFilters, token_number: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        applyFilters();
+                      }
+                    }}
+                    onBlur={() => {
+                      // Apply filter when user leaves the field
+                      if (inputFilters.token_number !== filters.token_number) {
+                        applyFilters();
+                      }
+                    }}
+                    placeholder="Search token number (partial match)"
+                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
+                  />
+                </div>
+              </div>
+              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Name</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -381,18 +480,61 @@ const VehicleList = () => {
                 <input
                   type="date"
                   value={filters.from_date}
-                  onChange={(e) => setFilters({ ...filters, from_date: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
+                  onChange={(e) => {
+                    const newFromDate = e.target.value;
+                    const newFilters = { ...filters, from_date: newFromDate };
+                    setFilters(newFilters);
+                    
+                    // Validate dates when changed (don't show toast, just set error state)
+                    validateDateFilters(newFromDate, newFilters.to_date, false);
+                  }}
+                  onBlur={() => {
+                    // Validate on blur (don't show toast, just set error state)
+                    validateDateFilters(filters.from_date, filters.to_date, false);
+                  }}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none ${
+                    dateErrors.from_date ? 'border-red-500' : 'border-gray-200'
+                  }`}
                 />
+                {dateErrors.from_date && (
+                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {dateErrors.from_date}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">To Date</label>
                 <input
                   type="date"
                   value={filters.to_date}
-                  onChange={(e) => setFilters({ ...filters, to_date: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
+                  min={filters.from_date || ''}
+                  onChange={(e) => {
+                    const newToDate = e.target.value;
+                    const newFilters = { ...filters, to_date: newToDate };
+                    setFilters(newFilters);
+                    
+                    // Validate dates when changed (don't show toast, just set error state)
+                    validateDateFilters(newFilters.from_date, newToDate, false);
+                  }}
+                  onBlur={() => {
+                    // Validate on blur (don't show toast, just set error state)
+                    validateDateFilters(filters.from_date, filters.to_date, false);
+                  }}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none ${
+                    dateErrors.to_date ? 'border-red-500' : 'border-gray-200'
+                  }`}
                 />
+                {dateErrors.to_date && (
+                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {dateErrors.to_date}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Sort By</label>
@@ -419,8 +561,8 @@ const VehicleList = () => {
               </button>
               <button
                 onClick={() => {
-                  setFilters({ status: '', vehicle_number: '', mobile_number: '', name: '', from_date: '', to_date: '' });
-                  setInputFilters({ vehicle_number: '', mobile_number: '', name: '' });
+                  setFilters({ status: '', vehicle_number: '', mobile_number: '', name: '', token_number: '', from_date: '', to_date: '' });
+                  setInputFilters({ vehicle_number: '', mobile_number: '', name: '', token_number: '' });
                   setPagination(prev => ({ ...prev, page: 1 }));
                   setCustomerHistory(null);
                 }}

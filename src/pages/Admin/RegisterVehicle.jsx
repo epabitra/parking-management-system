@@ -25,12 +25,15 @@ const RegisterVehicle = () => {
   const [imageUrl, setImageUrl] = useState('');
   const [imageUrls, setImageUrls] = useState([]);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [useImageValidation, setUseImageValidation] = useState(false);
+  const [verificationMethod, setVerificationMethod] = useState('otp'); // 'otp', 'image', or 'none'
   const [bulkMode, setBulkMode] = useState(false);
   const [vehicleNumbers, setVehicleNumbers] = useState(['']);
   const [bulkImageMode, setBulkImageMode] = useState('single'); // 'single' or 'multiple'
   const [companies, setCompanies] = useState([]);
   const [loadingCompanies, setLoadingCompanies] = useState(false);
+  const [tokenNumber, setTokenNumber] = useState('');
+  const [generatingToken, setGeneratingToken] = useState(false);
+  const [duplicateTokenModal, setDuplicateTokenModal] = useState({ isOpen: false, tokens: [], vehicleData: null });
   const isSuperAdmin = user?.is_super_admin || false;
 
   const {
@@ -305,6 +308,88 @@ const RegisterVehicle = () => {
     setVehicleNumbers(newNumbers);
   };
 
+  const handleGenerateToken = async () => {
+    try {
+      setGeneratingToken(true);
+      const response = await parkingAPI.generateTokenNumber();
+      if (response.success && response.data?.token_number) {
+        setTokenNumber(response.data.token_number);
+        toast.success('Token number generated successfully');
+      } else {
+        toast.error('Failed to generate token number');
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to generate token number');
+    } finally {
+      setGeneratingToken(false);
+    }
+  };
+
+  const handleDuplicateTokenProceed = async (proceedWithSameToken) => {
+    const { vehicleData } = duplicateTokenModal;
+    setDuplicateTokenModal({ isOpen: false, tokens: [], vehicleData: null });
+    
+    if (proceedWithSameToken) {
+      // Proceed with same token number - allow duplicate token
+      const vehicleDataWithFlag = {
+        ...vehicleData,
+        allow_duplicate_token: true
+      };
+      await submitVehicleRegistration(vehicleDataWithFlag);
+    } else {
+      // User wants to change token number - clear it and let them enter new one
+      setTokenNumber('');
+      toast.info('Please enter a new token number');
+    }
+  };
+
+  const submitVehicleRegistration = async (vehicleData) => {
+    try {
+      setSubmitting(true);
+      const response = await parkingAPI.registerVehicle(vehicleData);
+
+      if (response.success) {
+        const count = bulkMode ? (response.data?.count || vehicleNumbers.filter(vn => vn.trim() !== '').length) : 1;
+        toast.success(`${count} vehicle(s) registered successfully`);
+        navigate(ROUTES.ADMIN_DASHBOARD);
+      } else {
+        // Check for duplicate token error
+        if (response.error?.code === 'DUPLICATE_TOKEN') {
+          try {
+            const errorData = typeof response.error.message === 'string' ? JSON.parse(response.error.message) : response.error;
+            setDuplicateTokenModal({
+              isOpen: true,
+              tokens: errorData.tokens || [],
+              vehicleData: vehicleData
+            });
+          } catch (e) {
+            toast.error(response.error?.message || 'Failed to register vehicle');
+          }
+        } else {
+          toast.error(response.error?.message || 'Failed to register vehicle');
+        }
+      }
+    } catch (error) {
+      // Check for duplicate token error in catch block
+      if (error.data?.error?.code === 'DUPLICATE_TOKEN') {
+        try {
+          const errorData = typeof error.data.error.message === 'string' ? JSON.parse(error.data.error.message) : error.data.error;
+          setDuplicateTokenModal({
+            isOpen: true,
+            tokens: errorData.tokens || [],
+            vehicleData: vehicleData
+          });
+        } catch (e) {
+          toast.error(error.message || 'Failed to register vehicle');
+        }
+      } else {
+        toast.error(error.message || 'Failed to register vehicle');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSendOTP = async () => {
     if (!mobileNumber) {
       toast.error('Please enter mobile number first');
@@ -345,10 +430,16 @@ const RegisterVehicle = () => {
   };
 
   const onSubmit = async (data) => {
-    if (!useImageValidation && !otpVerified) {
-      toast.error('Please verify OTP or upload vehicle image');
+    // Validate based on verification method
+    if (verificationMethod === 'otp' && !otpVerified) {
+      toast.error('Please verify OTP');
       return;
     }
+    if (verificationMethod === 'image' && !imageUrl && (!bulkMode || bulkImageMode === 'single' ? !imageUrl : imageUrls.every(url => !url))) {
+      toast.error('Please upload vehicle image');
+      return;
+    }
+    // 'none' method doesn't require validation
 
     try {
       setSubmitting(true);
@@ -383,17 +474,12 @@ const RegisterVehicle = () => {
           vehicle_image_urls: vehicleImageUrls,
           vehicle_image_url: vehicleImageUrl,
           status: 'parked',
+          verification_method: verificationMethod, // 'otp', 'image', or 'none'
+          ...(tokenNumber.trim() && { token_number: tokenNumber.trim() }),
           ...(isSuperAdmin && selectedCompanyId && { company_id: selectedCompanyId }),
         };
 
-        const response = await parkingAPI.registerVehicle(vehicleData);
-
-        if (response.success) {
-          toast.success(`${response.data.count || validNumbers.length} vehicle(s) registered successfully`);
-          navigate(ROUTES.ADMIN_DASHBOARD);
-        } else {
-          toast.error(response.error?.message || 'Failed to register vehicles');
-        }
+        await submitVehicleRegistration(vehicleData);
       } else {
         const vehicleData = {
           vehicle_number: data.vehicle_number,
@@ -402,21 +488,15 @@ const RegisterVehicle = () => {
           address: data.address || '',
           vehicle_image_url: imageUrl || '',
           status: 'parked',
+          verification_method: verificationMethod, // 'otp', 'image', or 'none'
+          ...(tokenNumber.trim() && { token_number: tokenNumber.trim() }),
           ...(isSuperAdmin && selectedCompanyId && { company_id: selectedCompanyId }),
         };
 
-        const response = await parkingAPI.registerVehicle(vehicleData);
-
-        if (response.success) {
-          toast.success(SUCCESS_MESSAGES.VEHICLE_REGISTERED);
-          navigate(ROUTES.ADMIN_DASHBOARD);
-        } else {
-          toast.error(response.error?.message || 'Failed to register vehicle');
-        }
+        await submitVehicleRegistration(vehicleData);
       }
     } catch (error) {
       toast.error(error.message || 'Failed to register vehicle');
-    } finally {
       setSubmitting(false);
     }
   };
@@ -632,6 +712,31 @@ const RegisterVehicle = () => {
                 />
               </div>
 
+              {/* Token Number */}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Token Number <span className="text-gray-400 text-xs font-normal">(Optional)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={tokenNumber}
+                    onChange={(e) => setTokenNumber(e.target.value)}
+                    className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
+                    placeholder="Enter token number or click Generate"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGenerateToken}
+                    disabled={generatingToken}
+                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {generatingToken ? 'Generating...' : 'Generate'}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Leave empty if no token number needed</p>
+              </div>
+
               {/* Validation Method */}
               <div className="border-t-2 border-gray-100 pt-6">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
@@ -641,18 +746,18 @@ const RegisterVehicle = () => {
                 
                 <div className="space-y-4">
                   {/* OTP Validation */}
-                  <div className={`border-2 rounded-xl p-5 transition-all duration-200 ${!useImageValidation ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
+                  <div className={`border-2 rounded-xl p-5 transition-all duration-200 ${verificationMethod === 'otp' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
                     <div className="flex items-center justify-between mb-4">
                       <label className="flex items-center cursor-pointer">
                         <input
                           type="radio"
-                          checked={!useImageValidation}
-                          onChange={() => setUseImageValidation(false)}
+                          checked={verificationMethod === 'otp'}
+                          onChange={() => setVerificationMethod('otp')}
                           className="w-5 h-5 text-blue-600 focus:ring-blue-500"
                         />
                         <span className="ml-3 font-semibold text-gray-800">OTP Verification</span>
                       </label>
-                      {otpVerified && (
+                      {otpVerified && verificationMethod === 'otp' && (
                         <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold flex items-center">
                           <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -662,7 +767,7 @@ const RegisterVehicle = () => {
                       )}
                     </div>
                     
-                    {!otpVerified && (
+                    {verificationMethod === 'otp' && !otpVerified && (
                       <div className="space-y-3">
                         <button
                           type="button"
@@ -698,18 +803,18 @@ const RegisterVehicle = () => {
                   </div>
 
                   {/* Image Validation */}
-                  <div className={`border-2 rounded-xl p-5 transition-all duration-200 ${useImageValidation ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
+                  <div className={`border-2 rounded-xl p-5 transition-all duration-200 ${verificationMethod === 'image' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
                     <div className="flex items-center justify-between mb-4">
                       <label className="flex items-center cursor-pointer">
                         <input
                           type="radio"
-                          checked={useImageValidation}
-                          onChange={() => setUseImageValidation(true)}
+                          checked={verificationMethod === 'image'}
+                          onChange={() => setVerificationMethod('image')}
                           className="w-5 h-5 text-blue-600 focus:ring-blue-500"
                         />
                         <span className="ml-3 font-semibold text-gray-800">Image Validation</span>
                       </label>
-                      {imageUrl && (
+                      {verificationMethod === 'image' && imageUrl && (
                         <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold flex items-center">
                           <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -719,8 +824,9 @@ const RegisterVehicle = () => {
                       )}
                     </div>
                     
-                    <div className="space-y-3">
-                      {bulkMode ? (
+                    {verificationMethod === 'image' && (
+                      <div className="space-y-3">
+                        {bulkMode ? (
                         <div className="space-y-4">
                           {/* Image Mode Selection for Bulk */}
                           <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
@@ -876,7 +982,34 @@ const RegisterVehicle = () => {
                           )}
                         </>
                       )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* No Verification Option */}
+                  <div className={`border-2 rounded-xl p-5 transition-all duration-200 ${verificationMethod === 'none' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={verificationMethod === 'none'}
+                          onChange={() => setVerificationMethod('none')}
+                          className="w-5 h-5 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="ml-3 font-semibold text-gray-800">No Verification</span>
+                      </label>
+                      {verificationMethod === 'none' && (
+                        <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-semibold flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          Quick Register
+                        </span>
+                      )}
                     </div>
+                    <p className="text-sm text-gray-600 mt-2 ml-8">
+                      Register vehicle without OTP or image verification. Just enter the information and submit.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -885,11 +1018,15 @@ const RegisterVehicle = () => {
               <div className="flex gap-4 pt-6 border-t-2 border-gray-100">
                 <button
                   type="submit"
-                  disabled={submitting || (!otpVerified && !useImageValidation && (
-                    bulkMode 
-                      ? (bulkImageMode === 'single' ? !imageUrl : !imageUrls.some(url => url))
-                      : !imageUrl
-                  ))}
+                  disabled={submitting || (
+                    verificationMethod === 'otp' && !otpVerified
+                  ) || (
+                    verificationMethod === 'image' && (
+                      bulkMode 
+                        ? (bulkImageMode === 'single' ? !imageUrl : !imageUrls.some(url => url))
+                        : !imageUrl
+                    )
+                  )}
                   className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-200 font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {submitting ? (
@@ -916,6 +1053,53 @@ const RegisterVehicle = () => {
           </div>
         </div>
       </div>
+
+      {/* Duplicate Token Warning Modal */}
+      {duplicateTokenModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center mb-4">
+              <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mr-4">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Token Number Already In Use</h3>
+            </div>
+            <p className="text-gray-700 mb-4">
+              The token number <strong>{duplicateTokenModal.tokens[0]?.token_number || tokenNumber}</strong> is already assigned to a parked vehicle:
+            </p>
+            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 mb-4">
+              {duplicateTokenModal.tokens.map((token, idx) => (
+                <div key={idx} className="text-sm text-gray-800 mb-2">
+                  <strong>Vehicle:</strong> {token.vehicle_number} <br />
+                  <strong>Token:</strong> {token.token_number}
+                </div>
+              ))}
+            </div>
+            <p className="text-gray-700 mb-2">
+              <strong>Note:</strong> You can use the same token number for multiple vehicles (useful for groups of friends/colleagues registering together).
+            </p>
+            <p className="text-gray-700 mb-6">
+              How would you like to proceed?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleDuplicateTokenProceed(false)}
+                className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-all duration-200 font-semibold"
+              >
+                Change Token Number
+              </button>
+              <button
+                onClick={() => handleDuplicateTokenProceed(true)}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 font-semibold"
+              >
+                Use Same Token Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

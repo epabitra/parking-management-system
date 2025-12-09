@@ -133,7 +133,7 @@ const CompanyManagement = () => {
   }
 
   if (loading) {
-    return <Loading />;
+    return <Loading fullScreen />;
   }
 
   return (

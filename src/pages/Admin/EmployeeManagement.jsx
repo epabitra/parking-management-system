@@ -154,7 +154,7 @@ const EmployeeManagement = () => {
   };
 
   if (loading) {
-    return <Loading />;
+    return <Loading fullScreen />;
   }
 
   if (!isAdmin) {

@@ -49,7 +49,7 @@ const AdminDashboard = () => {
   };
 
   if (loading) {
-    return <Loading />;
+    return <Loading fullScreen />;
   }
 
   if (error) {

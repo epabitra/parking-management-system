@@ -20,6 +20,9 @@ const EditVehicle = () => {
   const [submitting, setSubmitting] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [tokenNumber, setTokenNumber] = useState('');
+  const [generatingToken, setGeneratingToken] = useState(false);
+  const [duplicateTokenModal, setDuplicateTokenModal] = useState({ isOpen: false, tokens: [], vehicleData: null });
 
   const {
     register,
@@ -45,6 +48,7 @@ const EditVehicle = () => {
         setValue('name', vehicle.name || '');
         setValue('address', vehicle.address || '');
         setImageUrl(vehicle.vehicle_image_url || '');
+        setTokenNumber(vehicle.token_number || '');
       }
     } catch (error) {
       toast.error(error.message || 'Failed to load vehicle');
@@ -263,35 +267,102 @@ const EditVehicle = () => {
     await processImageFile(file);
   };
 
-  const onSubmit = async (data) => {
+  const handleGenerateToken = async () => {
+    try {
+      setGeneratingToken(true);
+      const response = await parkingAPI.generateTokenNumber();
+      if (response.success && response.data?.token_number) {
+        setTokenNumber(response.data.token_number);
+        toast.success('Token number generated successfully');
+      } else {
+        toast.error('Failed to generate token number');
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to generate token number');
+    } finally {
+      setGeneratingToken(false);
+    }
+  };
+
+  const handleDuplicateTokenProceed = async (proceedWithSameToken) => {
+    const { vehicleData } = duplicateTokenModal;
+    setDuplicateTokenModal({ isOpen: false, tokens: [], vehicleData: null });
+    
+    if (proceedWithSameToken) {
+      // Proceed with same token number - allow duplicate token
+      const vehicleDataWithFlag = {
+        ...vehicleData,
+        allow_duplicate_token: true
+      };
+      await submitVehicleUpdate(vehicleDataWithFlag);
+    } else {
+      // User wants to change token number - clear it and let them enter new one
+      setTokenNumber('');
+      toast.info('Please enter a new token number');
+    }
+  };
+
+  const submitVehicleUpdate = async (vehicleData) => {
     try {
       setSubmitting(true);
-
-      const vehicleData = {
-        vehicle_number: data.vehicle_number,
-        mobile_number: data.mobile_number,
-        name: data.name || '',
-        address: data.address || '',
-        vehicle_image_url: imageUrl || '',
-      };
-
       const response = await parkingAPI.updateVehicle(id, vehicleData);
 
       if (response.success) {
         toast.success(SUCCESS_MESSAGES.VEHICLE_UPDATED);
         navigate(ROUTES.ADMIN_VEHICLES);
       } else {
-        toast.error(response.error?.message || 'Failed to update vehicle');
+        // Check for duplicate token error
+        if (response.error?.code === 'DUPLICATE_TOKEN') {
+          try {
+            const errorData = typeof response.error.message === 'string' ? JSON.parse(response.error.message) : response.error;
+            setDuplicateTokenModal({
+              isOpen: true,
+              tokens: errorData.tokens || [],
+              vehicleData: vehicleData
+            });
+          } catch (e) {
+            toast.error(response.error?.message || 'Failed to update vehicle');
+          }
+        } else {
+          toast.error(response.error?.message || 'Failed to update vehicle');
+        }
       }
     } catch (error) {
-      toast.error(error.message || 'Failed to update vehicle');
+      // Check for duplicate token error in catch block
+      if (error.data?.error?.code === 'DUPLICATE_TOKEN') {
+        try {
+          const errorData = typeof error.data.error.message === 'string' ? JSON.parse(error.data.error.message) : error.data.error;
+          setDuplicateTokenModal({
+            isOpen: true,
+            tokens: errorData.tokens || [],
+            vehicleData: vehicleData
+          });
+        } catch (e) {
+          toast.error(error.message || 'Failed to update vehicle');
+        }
+      } else {
+        toast.error(error.message || 'Failed to update vehicle');
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
+  const onSubmit = async (data) => {
+    const vehicleData = {
+      vehicle_number: data.vehicle_number,
+      mobile_number: data.mobile_number,
+      name: data.name || '',
+      address: data.address || '',
+      vehicle_image_url: imageUrl || '',
+      token_number: tokenNumber.trim() || '', // Always include token_number, empty string to clear
+    };
+
+    await submitVehicleUpdate(vehicleData);
+  };
+
   if (loading) {
-    return <Loading />;
+    return <Loading fullScreen />;
   }
 
   return (
@@ -361,6 +432,30 @@ const EditVehicle = () => {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Token Number <span className="text-gray-400 text-xs font-normal">(Optional)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={tokenNumber}
+                    onChange={(e) => setTokenNumber(e.target.value)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter token number or click Generate"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGenerateToken}
+                    disabled={generatingToken}
+                    className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {generatingToken ? 'Generating...' : 'Generate'}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Leave empty if no token number needed</p>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle Image</label>
                 <input
                   type="file"
@@ -395,6 +490,53 @@ const EditVehicle = () => {
           </div>
         </div>
       </div>
+
+      {/* Duplicate Token Warning Modal */}
+      {duplicateTokenModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center mb-4">
+              <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mr-4">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Token Number Already In Use</h3>
+            </div>
+            <p className="text-gray-700 mb-4">
+              The token number <strong>{duplicateTokenModal.tokens[0]?.token_number || tokenNumber}</strong> is already assigned to a parked vehicle:
+            </p>
+            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 mb-4">
+              {duplicateTokenModal.tokens.map((token, idx) => (
+                <div key={idx} className="text-sm text-gray-800 mb-2">
+                  <strong>Vehicle:</strong> {token.vehicle_number} <br />
+                  <strong>Token:</strong> {token.token_number}
+                </div>
+              ))}
+            </div>
+            <p className="text-gray-700 mb-2">
+              <strong>Note:</strong> You can use the same token number for multiple vehicles (useful for groups of friends/colleagues registering together).
+            </p>
+            <p className="text-gray-700 mb-6">
+              How would you like to proceed?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleDuplicateTokenProceed(false)}
+                className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-all duration-200 font-semibold"
+              >
+                Change Token Number
+              </button>
+              <button
+                onClick={() => handleDuplicateTokenProceed(true)}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 font-semibold"
+              >
+                Use Same Token Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
